@@ -345,7 +345,8 @@ function onNavigate(panel: ActivePanel) {
   // ============ 用餐态（008 循环） ============
   if (isEatingScene.value) {
     if (panel === 'menu') {
-      // 点餐面板已在左侧显示，只需提示冷却
+      // 用餐态点餐面板显示在左侧：先切面板，再提示冷却（不能下单）
+      scene.dispatch({ type: 'GO_PANEL', panel: 'menu' })
       showEatingBlockHint()
       return
     }
@@ -695,38 +696,42 @@ function skipVideo() {
 
         <main class="scene-content">
           <!-- ============ 点餐面板 ============
-               MENU_OPEN / CHECKOUT_OPEN：右侧
-               DELIVERY / DELIVERY_HOLD / EATING：左侧（人物在右，左侧留白）
+               MENU_OPEN / CHECKOUT_OPEN / DELIVERY / DELIVERY_HOLD：右侧（保持下单位置）
+               EATING：左侧（人物在右吃饭，左侧留白）
+               005 播完进入 DELIVERY_HOLD 时，面板做一次淡入出现
           -->
-          <div
-            v-if="isMenuPanelVisible"
-            class="scene-pane"
-            :class="menuPanelLeft ? 'scene-pane--menu-left' : 'scene-pane--menu-right'"
-          >
-            <MenuPanel
-              ref="menuRef"
-              :quantities="quantities"
-              :favorite-ids="favoriteIds"
-              :search-keyword="searchKeyword"
-              :initial-category-id="menuCategoryId"
-              :cart-count="cart.totalQuantity"
-              :cart-total="cart.totalAmount"
-              :cart-calories="cart.totalCalories"
-              :has-unavailable="cart.hasUnavailable"
-              :eating="isEatingScene"
-              :cooldown-active="scene.cooldownActive"
-              :cooldown-minutes="scene.cooldownMinutes"
-              @add="addToCart"
-              @increase="increaseDish"
-              @decrease="decreaseDish"
-              @open-dish="openDishDetail"
-              @checkout="openCheckout"
-              @view-cart="openCheckout"
-            />
-          </div>
+          <Transition name="menu-appear" appear>
+            <div
+              v-if="isMenuPanelVisible"
+              :key="menuPanelLeft ? 'left' : 'right'"
+              class="scene-pane"
+              :class="menuPanelLeft ? 'scene-pane--menu-left' : 'scene-pane--menu-right'"
+            >
+              <MenuPanel
+                ref="menuRef"
+                :quantities="quantities"
+                :favorite-ids="favoriteIds"
+                :search-keyword="searchKeyword"
+                :initial-category-id="menuCategoryId"
+                :cart-count="cart.totalQuantity"
+                :cart-total="cart.totalAmount"
+                :cart-calories="cart.totalCalories"
+                :has-unavailable="cart.hasUnavailable"
+                :eating="isEatingScene"
+                :cooldown-active="scene.cooldownActive"
+                :cooldown-minutes="scene.cooldownMinutes"
+                @add="addToCart"
+                @increase="increaseDish"
+                @decrease="decreaseDish"
+                @open-dish="openDishDetail"
+                @checkout="openCheckout"
+                @view-cart="openCheckout"
+              />
+            </div>
+          </Transition>
 
           <!-- ============ 其他面板 ============ -->
-          <div v-else class="scene-pane scene-pane--left">
+          <div v-if="!isMenuPanelVisible" class="scene-pane scene-pane--left">
             <Transition name="fade" mode="out-in">
               <HomeDashboard
                 v-if="scene.activePanel === 'home'"
@@ -859,6 +864,25 @@ function skipVideo() {
 .scene-pane {
   height: 100%;
   min-width: 0;
+}
+
+/* 点餐面板出现/位置切换的淡入淡出（005 播完后面板渐变出现） */
+.menu-appear-enter-active {
+  transition: opacity var(--motion-slow) var(--ease-standard),
+    transform var(--motion-slow) var(--ease-enter);
+}
+
+.menu-appear-leave-active {
+  transition: opacity var(--motion-normal) var(--ease-standard);
+}
+
+.menu-appear-enter-from {
+  opacity: 0;
+  transform: translateY(10px) scale(0.985);
+}
+
+.menu-appear-leave-to {
+  opacity: 0;
 }
 
 /* 非点餐面板：靠左 */

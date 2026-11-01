@@ -367,7 +367,13 @@ export function isMenuPanelVisible(state: SceneState): boolean {
   )
 }
 
-/** 点餐面板是否在左侧（用餐态：人物在右，UI 在左） */
+/**
+ * 点餐面板是否在左侧。
+ *
+ * 只有真正进入用餐视角（006 播完、循环 008 吃饭）后，人物在右侧吃饭、
+ * 左侧留白，此时点餐 UI 才移到左边，避免挡住人物。
+ * DELIVERY_HOLD（005 刚播完、服务员放盘子）保持下单时的右侧位置不变。
+ */
 export function isMenuPanelLeft(state: SceneState): boolean {
-  return state === 'DELIVERY_HOLD' || state === 'EATING'
+  return state === 'EATING'
 }
