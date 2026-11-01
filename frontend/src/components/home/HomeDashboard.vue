@@ -266,7 +266,16 @@ defineExpose({ reload: load })
   flex-direction: column;
   gap: var(--space-4);
   height: 100%;
+  min-height: 0;
   padding-right: 6px;
+  /* 内容超出容器时在内部滚动，避免顶部被裁切 */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* 关键：卡片不允许被 flex 压缩，否则内容多时会被压扁 */
+.home-dash > * {
+  flex: none;
 }
 
 .home-dash__error {
@@ -519,13 +528,81 @@ defineExpose({ reload: load })
   }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1300px) {
   .home-dash__row {
     grid-template-columns: 1fr;
   }
 
   .recommend-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* 营养卡片：窄屏保持横向但收紧，数值允许收缩不溢出 */
+  .nutrition-body {
+    gap: var(--space-3);
+    min-width: 0;
+  }
+
+  .nutrition-list {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .nutrition-row {
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .nutrition-row__label {
+    font-size: 10.5px;
+    flex: none;
+  }
+
+  .nutrition-row__value {
+    font-size: 10.5px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nutrition-row__value small {
+    font-size: 9px;
+  }
+
+  .nutrition-card {
+    padding: var(--space-4);
+    overflow: hidden;
+  }
+
+  /* 窄卡片下缩小环形图，给数值列表腾空间 */
+  .nutrition-body > :first-child {
+    transform: scale(0.78);
+    transform-origin: left center;
+    margin-right: -22px;
+    flex: none;
+  }
+}
+
+/* 中屏收紧：只调整间距与网格，不改 .home-dash 自身的 padding（原本就没有） */
+@media (max-width: 1439px) {
+  .home-dash {
+    gap: var(--space-3);
+  }
+
+  .recommend-grid {
+    gap: 10px;
+  }
+
+  .category-grid {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 1300px) {
+  .category-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 

@@ -838,6 +838,8 @@ function skipVideo() {
   width: 100%;
   height: 100vh;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .sound-anchor {
@@ -852,9 +854,12 @@ function skipVideo() {
   z-index: 20;
   display: flex;
   gap: var(--space-5);
-  height: calc(100vh - var(--topbar-height) - var(--space-4) - 20px);
+  /* 由 flex 自动填充 topbar 之后的剩余高度，避免手算 vh 出错 */
+  flex: 1;
+  min-height: 0;
   padding: 20px var(--space-6) var(--space-5);
   align-items: flex-start;
+  overflow: hidden;
 }
 
 .scene-content {
@@ -867,6 +872,8 @@ function skipVideo() {
 .scene-pane {
   height: 100%;
   min-width: 0;
+  /* 不在这里裁切：内部各面板（.home-dash / .scroll-y）自己管理滚动 */
+  overflow: visible;
 }
 
 /* 点餐面板出现/位置切换的淡入淡出（005 播完后面板渐变出现） */
@@ -888,21 +895,26 @@ function skipVideo() {
   opacity: 0;
 }
 
-/* 非点餐面板：靠左 */
+/*
+ * 面板宽度策略：clamp(最小, 理想, 最大)
+ * - 大屏（>=1440）：约占 56%，上限 1080，右侧留出人物空间
+ * - 中屏（1024~1440）：占比逐步下降，避免遮挡人物
+ * - 小屏（<1024）：单列铺满
+ */
 .scene-pane--left {
-  width: min(62vw, 1080px);
+  width: clamp(320px, 56vw, 1080px);
   margin-right: auto;
 }
 
 /* 点餐面板（俯视视角）：靠右 */
 .scene-pane--menu-right {
-  width: min(60vw, 1180px);
+  width: clamp(340px, 58vw, 1180px);
   margin-left: auto;
 }
 
 /* 点餐面板（用餐态）：靠左，避开右侧人物 */
 .scene-pane--menu-left {
-  width: min(52vw, 980px);
+  width: clamp(320px, 50vw, 980px);
   margin-right: auto;
 }
 
@@ -1092,15 +1104,48 @@ function skipVideo() {
 
 @media (max-width: 1439px) {
   .scene-pane--left {
-    width: min(66vw, 900px);
+    width: clamp(300px, 54vw, 900px);
   }
 
   .scene-pane--menu-right {
-    width: min(66vw, 980px);
+    width: clamp(320px, 56vw, 980px);
   }
 
   .scene-pane--menu-left {
-    width: min(58vw, 820px);
+    width: clamp(300px, 48vw, 820px);
+  }
+}
+
+@media (max-width: 1180px) {
+  .scene-pane--left {
+    width: clamp(280px, 62vw, 760px);
+  }
+
+  .scene-pane--menu-right {
+    width: clamp(300px, 64vw, 820px);
+  }
+
+  .scene-pane--menu-left {
+    width: clamp(280px, 56vw, 700px);
+  }
+}
+
+@media (max-width: 1180px) {
+  .scene-body {
+    padding: 16px var(--space-4) var(--space-4);
+    gap: var(--space-3);
+  }
+
+  .scene-pane--left {
+    width: clamp(280px, 62vw, 760px);
+  }
+
+  .scene-pane--menu-right {
+    width: clamp(300px, 64vw, 820px);
+  }
+
+  .scene-pane--menu-left {
+    width: clamp(280px, 56vw, 700px);
   }
 }
 
@@ -1112,7 +1157,6 @@ function skipVideo() {
   }
 
   .scene-body {
-    height: calc(100vh - 64px - 10px - 16px);
     padding: 12px 12px 76px;
     gap: 0;
   }
