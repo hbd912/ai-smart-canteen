@@ -92,7 +92,10 @@ const quantities = computed<Record<number, number>>(() => {
 const showAuth = computed(() => scene.sceneState === 'LOGIN_REQUIRED' && !auth.isLoggedIn)
 const showBusinessUI = computed(() => shouldShowBusinessUI(scene.sceneState))
 const isEatingScene = computed(() => scene.sceneState === 'EATING')
-const isMenuPanelVisible = computed(() => scene.menuPanelVisible)
+/** 点餐面板可见：状态允许 且 当前导航停在「点餐」
+ *  —— 缺了 activePanel 判断会导致用餐态点其他导航时仍显示点餐页
+ */
+const isMenuPanelVisible = computed(() => scene.menuPanelVisible && scene.activePanel === 'menu')
 /** 用餐态点餐面板在左侧（人物在右） */
 const menuPanelLeft = computed(() => scene.menuPanelLeft)
 /** 005 播完、停在服务员放盘子画面，等待用户点导航 */

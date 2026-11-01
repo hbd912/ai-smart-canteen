@@ -356,12 +356,16 @@ export function shouldShowBusinessUI(state: SceneState): boolean {
   return !['INTRO_PLAYING', 'LOGIN_REQUIRED', 'ENTERING', 'SEATING'].includes(state)
 }
 
-/** 点餐面板是否可见：MENU_OPEN / CHECKOUT_OPEN / DELIVERY / DELIVERY_HOLD / EATING */
+/**
+ * 点餐面板是否可见。
+ *
+ * 注意：DELIVERY（005 播放中）**不显示**点餐面板 —— 下单后 UI 暂时消失，
+ * 让 005 送餐动画完整呈现；005 播完进入 DELIVERY_HOLD 定格后，面板才淡入出现。
+ */
 export function isMenuPanelVisible(state: SceneState): boolean {
   return (
     state === 'MENU_OPEN' ||
     state === 'CHECKOUT_OPEN' ||
-    state === 'DELIVERY' ||
     state === 'DELIVERY_HOLD' ||
     state === 'EATING'
   )

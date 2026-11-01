@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 007 首页背景的「正放 -> 倒放 -> 正放」往返播放器。
  *
  * 需求：正放进行到最后几秒时开始倒放，倒放到头后再正放，如此循环，衔接要自然。
@@ -9,9 +9,13 @@
  * 2. 正向 121 帧；反向 119 帧（= 正向 f119…f1，去掉首尾两个衔接帧）。
  *    帧映射 reversed[i] == forward[120 - i]，已逐帧比对验证，
  *    因此「正向停在 f119」与「反向从 r0(=f119) 开始」完全对齐，无跳帧。
- * 3. 正向播放到剩余 TAIL_SECONDS 秒时预先启动反向视频并交叉淡化，实现平滑衔接。
- * 4. 反向播放到剩余 TAIL_SECONDS 秒时，切回正向。
- * 5. 两路 video 叠放，用 opacity 交叉淡化掩盖接缝（250ms）。
+ * 3. **按帧精确匹配**：切换时不是把反向视频归零，而是跳到与当前正向帧
+ *    完全对应的反向帧，两路画面在切换瞬间完全一致，肉眼看不到跳帧/闪烁。
+ *    映射关系：reversed[i] == forward[REVERSE_LAST_FRAME - i]
+ *    - 正向在第 k 帧 → 反向应定位到第 (119 - k) 帧
+ *    - 反向在第 i 帧 → 正向应定位到第 (119 - i) 帧
+ * 4. 正向播放到剩余 TAIL_SECONDS 秒时开始切换，边交叉淡化边反向播放。
+ * 5. 反向播放到剩余 TAIL_SECONDS 秒时，切回正向。
  */
 import { onBeforeUnmount, ref, shallowRef } from 'vue'
 
@@ -27,8 +31,13 @@ interface PingPongOptions {
 }
 
 export function usePingPongVideo(options: PingPongOptions) {
-  const tailSeconds = options.tailSeconds ?? 0.6
-  const fadeMs = options.fadeMs ?? 250
+  const tailSeconds = options.tailSeconds ?? 0.8
+  const fadeMs = options.fadeMs ?? 60
+
+  /** 视频帧率（007-1 与 007-reversed 均为 24fps） */
+  const FPS = 24
+  /** 反向视频最后一帧的索引：reversed[i] == forward[119 - i] */
+  const REVERSE_LAST_FRAME = 119
 
   const videoA = shallowRef<HTMLVideoElement | null>(null)
   const videoB = shallowRef<HTMLVideoElement | null>(null)
@@ -101,6 +110,22 @@ export function usePingPongVideo(options: PingPongOptions) {
     }
   }
 
+  /** 正向当前时间 -> 反向应对齐的时间（保证画面完全一致） */
+  function forwardTimeToReverseTime(forwardTime: number): number {
+    const k = Math.round(forwardTime * FPS)
+    const ri = REVERSE_LAST_FRAME - k
+    const clamped = Math.max(0, Math.min(REVERSE_LAST_FRAME, ri))
+    return clamped / FPS
+  }
+
+  /** 反向当前时间 -> 正向应对齐的时间 */
+  function reverseTimeToForwardTime(reverseTime: number): number {
+    const ri = Math.round(reverseTime * FPS)
+    const k = REVERSE_LAST_FRAME - ri
+    const clamped = Math.max(0, k)
+    return clamped / FPS
+  }
+
   async function switchTo(target: PingPongPhase) {
     if (switching) {
       return
@@ -117,8 +142,16 @@ export function usePingPongVideo(options: PingPongOptions) {
     const incoming = target === 'forward' ? f : r
     const outgoing = target === 'forward' ? r : f
 
+    // 关键：按帧精确对齐，让 incoming 的第一帧与 outgoing 当前帧完全一致，
+    // 这样切换瞬间画面不跳变，也就不会有闪烁感。
     try {
-      incoming.currentTime = 0
+      if (target === 'reverse') {
+        // 正向 -> 反向：反向定位到与正向当前帧对应的位置
+        incoming.currentTime = forwardTimeToReverseTime(outgoing.currentTime)
+      } else {
+        // 反向 -> 正向：正向定位到与反向当前帧对应的位置
+        incoming.currentTime = reverseTimeToForwardTime(outgoing.currentTime)
+      }
     } catch {
       /* ignore */
     }
