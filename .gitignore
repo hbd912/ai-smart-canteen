@@ -35,6 +35,8 @@ coverage/
 tools/e2e/node_modules/
 tools/e2e/shots/
 tools/e2e/*.log
+tools/e2e/debug-*.png
+tools/e2e/debug-*.js
 
 # ---------- 环境与密钥（绝不提交真实值） ----------
 .env
