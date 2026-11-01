@@ -254,6 +254,9 @@ function submit() {
   align-items: center;
   gap: var(--space-3);
   flex: none;
+  /* 搜索框隐藏时（如首页），用 margin-left:auto 把右侧控件推到最右，
+     否则会紧跟品牌名贴到左边 */
+  margin-left: auto;
 }
 
 .weather {
