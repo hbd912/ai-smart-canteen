@@ -1,0 +1,8 @@
+﻿asset_id,source_file,project_file,width,height,format,role,used_by,verified
+figure-01,D:\AI\AI Contest\canteen\picture\图1.png,frontend/public/assets/images/reference/figure-01.png,2048,1113,png,001-1 门口结束帧/登录卡片位置参考,docs+design-review,VERIFIED
+figure-02,D:\AI\AI Contest\canteen\picture\图2.png,frontend/public/assets/images/reference/figure-02.png,2048,1113,png,003-1 落座空桌构图参考,docs+design-review,VERIFIED
+figure-03,D:\AI\AI Contest\canteen\picture\图3.png,frontend/public/assets/images/reference/figure-03.png,1672,941,png,首页 UI 布局参考,docs+design-review,VERIFIED
+figure-04,D:\AI\AI Contest\canteen\picture\图4.png,frontend/public/assets/images/reference/figure-04.png,2544,1383,jpeg,004-1 俯视菜单镜头参考,docs+design-review,VERIFIED
+figure-05,D:\AI\AI Contest\canteen\picture\图5.png,frontend/public/assets/images/reference/figure-05.png,1672,941,png,点餐页 UI 布局参考,docs+design-review,VERIFIED
+figure-06,D:\AI\AI Contest\canteen\picture\图6.png,frontend/public/assets/images/reference/figure-06.png,2544,1383,jpeg,005-1 服务员送餐关键帧参考,docs+design-review,VERIFIED
+figure-07,D:\AI\AI Contest\canteen\picture\图7.png,frontend/public/assets/images/reference/figure-07.png,1672,941,png,006-1 最终侧面用餐构图参考,docs+design-review,VERIFIED

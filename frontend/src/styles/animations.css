@@ -1,0 +1,308 @@
+/* =============================================================
+   动效与过渡：分层动效、错峰入场、氛围光
+   ============================================================= */
+
+/* 入场：轻微上移 + 淡入 */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pop-badge {
+  0% {
+    transform: scale(1);
+  }
+
+  45% {
+    transform: scale(1.28);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes breathe-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes ambient-drift {
+  0% {
+    transform: translate3d(-2%, 0, 0) scale(1);
+    opacity: 0.5;
+  }
+
+  50% {
+    transform: translate3d(2%, -1%, 0) scale(1.06);
+    opacity: 0.72;
+  }
+
+  100% {
+    transform: translate3d(-2%, 0, 0) scale(1);
+    opacity: 0.5;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(124, 143, 90, 0.42);
+  }
+
+  70% {
+    box-shadow: 0 0 0 12px rgba(124, 143, 90, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(124, 143, 90, 0);
+  }
+}
+
+/* 工具类：错峰入场 */
+.anim-rise {
+  animation: rise-in var(--motion-slow) var(--ease-enter) both;
+}
+
+.anim-fade {
+  animation: fade-in var(--motion-slow) var(--ease-standard) both;
+}
+
+.anim-slide-right {
+  animation: slide-in-right var(--motion-linger) var(--ease-enter) both;
+}
+
+.anim-slide-left {
+  animation: slide-in-left var(--motion-linger) var(--ease-enter) both;
+}
+
+.anim-scale {
+  animation: scale-in var(--motion-normal) var(--ease-enter) both;
+}
+
+/* 错峰延迟 */
+.delay-1 {
+  animation-delay: 60ms;
+}
+
+.delay-2 {
+  animation-delay: 120ms;
+}
+
+.delay-3 {
+  animation-delay: 180ms;
+}
+
+.delay-4 {
+  animation-delay: 240ms;
+}
+
+.delay-5 {
+  animation-delay: 300ms;
+}
+
+.delay-6 {
+  animation-delay: 360ms;
+}
+
+/* 极轻浮动（仅用于重点推荐卡，错开起始时间） */
+.float-soft {
+  animation: breathe-float 6.5s var(--ease-standard) infinite;
+}
+
+.float-soft--offset {
+  animation-delay: -2.4s;
+}
+
+/* 环境光层 */
+.ambient-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.ambient-glow::before,
+.ambient-glow::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  will-change: transform, opacity;
+}
+
+.ambient-glow::before {
+  width: 46vw;
+  height: 46vw;
+  left: -6vw;
+  top: -8vw;
+  background: radial-gradient(circle, rgba(255, 226, 178, 0.4), transparent 68%);
+  animation: ambient-drift 17s ease-in-out infinite;
+}
+
+.ambient-glow::after {
+  width: 38vw;
+  height: 38vw;
+  right: -4vw;
+  bottom: -10vw;
+  background: radial-gradient(circle, rgba(214, 232, 199, 0.34), transparent 70%);
+  animation: ambient-drift 21s ease-in-out infinite reverse;
+}
+
+/* Vue 过渡：卡片淡入 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity var(--motion-normal) var(--ease-standard);
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Vue 过渡：面板滑入（右侧 24px） */
+.panel-enter-active {
+  transition: opacity var(--motion-slow) var(--ease-enter),
+    transform var(--motion-slow) var(--ease-enter);
+}
+
+.panel-leave-active {
+  transition: opacity var(--motion-normal) var(--ease-exit),
+    transform var(--motion-normal) var(--ease-exit);
+}
+
+.panel-enter-from {
+  opacity: 0;
+  transform: translateX(26px);
+}
+
+.panel-leave-to {
+  opacity: 0;
+  transform: translateX(18px);
+}
+
+/* Vue 过渡：底部抽屉 */
+.drawer-enter-active,
+.drawer-leave-active {
+  transition: opacity var(--motion-normal) var(--ease-standard),
+    transform var(--motion-slow) var(--ease-enter);
+}
+
+.drawer-enter-from,
+.drawer-leave-to {
+  opacity: 0;
+  transform: translateY(18px) scale(0.985);
+}
+
+/* Vue 过渡：模态框 */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity var(--motion-normal) var(--ease-standard);
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-active .modal__surface {
+  animation: scale-in var(--motion-slow) var(--ease-enter) both;
+}
+
+/* Vue 过渡：列表项 */
+.list-enter-active,
+.list-leave-active {
+  transition: opacity var(--motion-normal) var(--ease-standard),
+    transform var(--motion-normal) var(--ease-standard);
+}
+
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.list-move {
+  transition: transform var(--motion-normal) var(--ease-standard);
+}
+
+/* Vue 过渡：toast */
+.toast-enter-active,
+.toast-leave-active {
+  transition: opacity var(--motion-normal) var(--ease-standard),
+    transform var(--motion-slow) var(--ease-enter);
+}
+
+.toast-enter-from {
+  opacity: 0;
+  transform: translateY(-14px) scale(0.96);
+}
+
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.98);
+}

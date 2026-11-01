@@ -1,0 +1,11 @@
+asset_id,source_file,project_file,extension,duration_seconds,width,height,fps,codec,has_audio,usage,verified
+001-1,Animation\001-1.mp4,frontend/public/assets/media/001-1.mp4,mp4,3.111,2554,1440,30/1,h264,true,叙事过渡,VERIFIED
+002-1,Animation\002-1.mp4,frontend/public/assets/media/002-1.mp4,mp4,1.811,2554,1440,30/1,h264,true,叙事过渡,VERIFIED
+003-1,Animation\003-1.mp4,frontend/public/assets/media/003-1.mp4,mp4,5.042,1284,724,24/1,h264,true,叙事过渡,VERIFIED
+004-1,Animation\004-1.mp4,frontend/public/assets/media/004-1.mp4,mp4,5.042,1284,724,24/1,h264,true,叙事过渡,VERIFIED
+004-1-reverse,GENERATED_BY_FFMPEG_REVERSE,frontend/public/assets/media/004-1-reverse.mp4,mp4,5.042,1284,724,24/1,h264,true,叙事过渡,VERIFIED
+005-1,Animation\005-1.mp4,frontend/public/assets/media/005-1.mp4,mp4,5.042,1284,724,24/1,h264,true,S1 下单后送餐,VERIFIED
+006-1,Animation\006-1.mp4,frontend/public/assets/media/006-1.mp4,mp4,5.042,1284,724,24/1,h264,true,S3 视角转换,VERIFIED
+007-1,Animation\007-1.mp4,frontend/public/assets/media/007-1.mp4,mp4,5.042,1280,720,24/1,h264,true,S0 首页 ping-pong（正放↔倒放）,VERIFIED
+007-reversed,GENERATED_BY_FFMPEG_REVERSE,frontend/public/assets/media/007-reversed.mp4,mp4,5.039,1280,720,24/1,h264,true,S0 首页 ping-pong（正放↔倒放）,VERIFIED
+008-1,Animation\008-1.mp4,frontend/public/assets/media/008-1.mp4,mp4,5.042,1280,720,24/1,h264,true,S2 用餐循环,VERIFIED

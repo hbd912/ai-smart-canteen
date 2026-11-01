@@ -1,0 +1,82 @@
+# ============================================================
+# 智慧食堂 · Git 忽略规则
+# ============================================================
+
+# ---------- 依赖 ----------
+node_modules/
+.pnpm-store/
+.yarn/
+jspm_packages/
+
+# ---------- 构建产物 ----------
+dist/
+dist-ssr/
+build/
+out/
+*.local
+backend/target/
+backend/build/
+*.class
+*.jar
+*.war
+!.mvn/wrapper/maven-wrapper.jar
+
+# ---------- 构建缓存 ----------
+.vite/
+.vite-cache/
+.cache/
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+
+# ---------- 测试与覆盖率 ----------
+coverage/
+.nyc_output/
+tools/e2e/node_modules/
+tools/e2e/shots/
+tools/e2e/*.log
+
+# ---------- 环境与密钥（绝不提交真实值） ----------
+.env
+.env.local
+.env.*.local
+.env.production
+application-local.yml
+application-prod.yml
+!.env.example
+
+# ---------- 上传的用户文件（保留目录，不提交内容） ----------
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# ---------- 日志与临时文件 ----------
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.tmp_*
+tmp_*
+.tmp_frames/
+*.bak
+*.orig
+*.rej
+
+# ---------- IDE / 编辑器 ----------
+.idea/
+.vscode/
+!.vscode/extensions.json
+*.iml
+*.ipr
+*.iws
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- 系统 ----------
+$RECYCLE.BIN/
+System Volume Information/

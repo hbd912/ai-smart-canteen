@@ -1,0 +1,21 @@
+{
+    "name":  "e2e",
+    "version":  "1.0.0",
+    "description":  "",
+    "main":  "index.js",
+    "scripts":  {
+                    "verify:main":  "node verify-v4.js",
+                    "verify:integration":  "node verify-integration.js",
+                    "verify:visual":  "node verify-visual-v4.js",
+                    "verify:all":  "node verify-v4.js \u0026\u0026 node verify-integration.js \u0026\u0026 node verify-visual-v4.js"
+                },
+    "keywords":  [
+
+                 ],
+    "author":  "",
+    "license":  "ISC",
+    "type":  "commonjs",
+    "dependencies":  {
+                         "puppeteer-core":  "^25.16.0"
+                     }
+}

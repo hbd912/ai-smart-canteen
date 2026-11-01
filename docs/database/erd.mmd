@@ -1,0 +1,173 @@
+erDiagram
+    sys_user ||--o{ dish_favorite : "收藏"
+    sys_user ||--o| shopping_cart : "拥有"
+    sys_user ||--o{ orders : "下单"
+    sys_user ||--o{ ai_conversation : "会话"
+
+    dish_category ||--o{ dish : "包含"
+    dish ||--o{ dish_favorite : "被收藏"
+    dish ||--o{ shopping_cart_item : "在购物车"
+    dish ||--o{ order_item : "订单明细"
+    dish ||--o{ inventory_log : "库存流水"
+    dish ||--o| home_recommendation : "首页推荐"
+
+    shopping_cart ||--o{ shopping_cart_item : "包含"
+    orders ||--o{ order_item : "包含"
+    orders ||--o{ order_status_log : "状态流水"
+    orders ||--o{ inventory_log : "库存扣减"
+    ai_conversation ||--o{ ai_message : "消息"
+
+    sys_admin ||--o{ inventory_log : "操作"
+
+    sys_user {
+        BIGINT id PK
+        VARCHAR username UK "登录账号"
+        VARCHAR password_hash "BCrypt 哈希"
+        VARCHAR nickname
+        VARCHAR email UK
+        VARCHAR phone UK
+        VARCHAR status "ACTIVE/DISABLED"
+        DATETIME created_at
+        DATETIME updated_at
+        TINYINT deleted
+    }
+
+    sys_admin {
+        BIGINT id PK
+        VARCHAR username UK
+        VARCHAR password_hash "BCrypt 哈希"
+        VARCHAR display_name
+        VARCHAR role_code "SUPER_ADMIN/OPERATOR/NUTRITION_ADMIN"
+        VARCHAR permissions "逗号分隔权限点"
+        VARCHAR status
+        DATETIME last_login_at
+    }
+
+    dish_category {
+        BIGINT id PK
+        VARCHAR name UK
+        VARCHAR code UK
+        VARCHAR icon
+        INT sort_order
+        VARCHAR status "ACTIVE/INACTIVE"
+    }
+
+    dish {
+        BIGINT id PK
+        BIGINT category_id FK
+        VARCHAR dish_code UK
+        VARCHAR name
+        JSON ingredients_json
+        JSON allergens_json
+        VARCHAR image_url
+        DECIMAL price "DECIMAL(10,2)"
+        DECIMAL calories "DECIMAL(8,2)"
+        DECIMAL protein_g
+        DECIMAL fat_g
+        DECIMAL carbohydrate_g
+        DECIMAL fiber_g
+        DECIMAL sodium_mg
+        VARCHAR nutrition_source "ESTIMATED/LABEL/TESTED"
+        INT stock
+        INT daily_limit
+        INT sold_count
+        VARCHAR supply_status "AVAILABLE/SOLD_OUT/PAUSED"
+        VARCHAR publish_status "DRAFT/PUBLISHED/UNPUBLISHED"
+        TINYINT recommend_flag
+        INT recommend_rank
+        JSON tags_json
+        INT sort_order
+        TINYINT deleted
+    }
+
+    dish_favorite {
+        BIGINT id PK
+        BIGINT user_id FK
+        BIGINT dish_id FK
+        DATETIME created_at
+    }
+
+    shopping_cart {
+        BIGINT id PK
+        BIGINT user_id FK "UNIQUE"
+        DATETIME created_at
+        DATETIME updated_at
+    }
+
+    shopping_cart_item {
+        BIGINT id PK
+        BIGINT cart_id FK
+        BIGINT dish_id FK
+        INT quantity "> 0"
+    }
+
+    orders {
+        BIGINT id PK
+        VARCHAR order_no UK
+        BIGINT user_id FK
+        DECIMAL total_amount
+        DECIMAL total_calories
+        VARCHAR order_status
+        VARCHAR payment_status
+        VARCHAR remark
+        DATETIME created_at
+        DATETIME completed_at
+    }
+
+    order_item {
+        BIGINT id PK
+        BIGINT order_id FK
+        BIGINT dish_id FK "可空（软删除）"
+        VARCHAR dish_name_snapshot
+        VARCHAR image_url_snapshot
+        DECIMAL unit_price_snapshot
+        INT quantity
+        DECIMAL subtotal
+        DECIMAL calories_snapshot
+        DECIMAL protein_snapshot
+        DECIMAL fat_snapshot
+        DECIMAL carbohydrate_snapshot
+    }
+
+    inventory_log {
+        BIGINT id PK
+        BIGINT dish_id FK
+        INT change_amount
+        INT before_stock
+        INT after_stock
+        VARCHAR reason
+        BIGINT operator_admin_id FK
+        BIGINT related_order_id FK
+    }
+
+    home_recommendation {
+        BIGINT id PK
+        BIGINT dish_id FK "UNIQUE"
+        VARCHAR title
+        VARCHAR badge_text
+        INT sort_order
+        TINYINT enabled
+    }
+
+    ai_conversation {
+        BIGINT id PK
+        BIGINT user_id FK
+        VARCHAR title
+    }
+
+    ai_message {
+        BIGINT id PK
+        BIGINT conversation_id FK
+        VARCHAR role "USER/ASSISTANT/SYSTEM"
+        TEXT content
+        VARCHAR mode "LLM/RULE_DEMO"
+    }
+
+    order_status_log {
+        BIGINT id PK
+        BIGINT order_id FK
+        VARCHAR from_status
+        VARCHAR to_status
+        VARCHAR operator_type "USER/ADMIN/SYSTEM"
+        VARCHAR remark
+    }

@@ -1,0 +1,154 @@
+@startuml
+skinparam backgroundColor #FFFDF8
+skinparam classAttributeIconSize 0
+hide circle
+
+entity "sys_user\n普通用户" as user {
+  * id : BIGINT <<PK>>
+  --
+  username : VARCHAR(50) <<UK>>
+  password_hash : VARCHAR(100)
+  nickname : VARCHAR(50)
+  email : VARCHAR(100) <<UK>>
+  phone : VARCHAR(20) <<UK>>
+  status : VARCHAR(20)
+}
+
+entity "sys_admin\n管理员" as admin {
+  * id : BIGINT <<PK>>
+  --
+  username : VARCHAR(50) <<UK>>
+  password_hash : VARCHAR(100)
+  role_code : VARCHAR(30)
+  permissions : VARCHAR(500)
+}
+
+entity "dish_category\n菜品分类" as category {
+  * id : BIGINT <<PK>>
+  --
+  name : VARCHAR(50) <<UK>>
+  code : VARCHAR(30) <<UK>>
+  sort_order : INT
+  status : VARCHAR(20)
+}
+
+entity "dish\n菜品" as dish {
+  * id : BIGINT <<PK>>
+  --
+  category_id : BIGINT <<FK>>
+  dish_code : VARCHAR(40) <<UK>>
+  name : VARCHAR(100)
+  price : DECIMAL(10,2)
+  calories : DECIMAL(8,2)
+  stock : INT
+  supply_status : VARCHAR(20)
+  publish_status : VARCHAR(20)
+}
+
+entity "dish_favorite\n收藏" as fav {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  dish_id : BIGINT <<FK>>
+}
+
+entity "shopping_cart\n购物车" as cart {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK,UK>>
+}
+
+entity "shopping_cart_item\n购物车明细" as cartitem {
+  * id : BIGINT <<PK>>
+  --
+  cart_id : BIGINT <<FK>>
+  dish_id : BIGINT <<FK>>
+  quantity : INT
+}
+
+entity "orders\n订单" as orders {
+  * id : BIGINT <<PK>>
+  --
+  order_no : VARCHAR(40) <<UK>>
+  user_id : BIGINT <<FK>>
+  total_amount : DECIMAL(10,2)
+  order_status : VARCHAR(30)
+  payment_status : VARCHAR(30)
+}
+
+entity "order_item\n订单明细快照" as orderitem {
+  * id : BIGINT <<PK>>
+  --
+  order_id : BIGINT <<FK>>
+  dish_id : BIGINT <<FK>>
+  dish_name_snapshot : VARCHAR(100)
+  unit_price_snapshot : DECIMAL(10,2)
+  quantity : INT
+  subtotal : DECIMAL(10,2)
+}
+
+entity "inventory_log\n库存流水" as invlog {
+  * id : BIGINT <<PK>>
+  --
+  dish_id : BIGINT <<FK>>
+  change_amount : INT
+  before_stock : INT
+  after_stock : INT
+  reason : VARCHAR(255)
+}
+
+entity "home_recommendation\n首页推荐" as rec {
+  * id : BIGINT <<PK>>
+  --
+  dish_id : BIGINT <<FK,UK>>
+  badge_text : VARCHAR(40)
+  sort_order : INT
+  enabled : TINYINT
+}
+
+entity "order_status_log\n订单状态流水" as statuslog {
+  * id : BIGINT <<PK>>
+  --
+  order_id : BIGINT <<FK>>
+  to_status : VARCHAR(30)
+  operator_type : VARCHAR(20)
+}
+
+entity "ai_conversation\nAI 会话" as conv {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>>
+  title : VARCHAR(100)
+}
+
+entity "ai_message\nAI 消息" as msg {
+  * id : BIGINT <<PK>>
+  --
+  conversation_id : BIGINT <<FK>>
+  role : VARCHAR(20)
+  content : TEXT
+  mode : VARCHAR(20)
+}
+
+user ||--o{ fav
+dish ||--o{ fav
+user ||--o| cart
+cart ||--o{ cartitem
+dish ||--o{ cartitem
+user ||--o{ orders
+orders ||--o{ orderitem
+dish ||--o{ orderitem
+dish ||--o{ invlog
+admin ||--o{ invlog
+category ||--o{ dish
+dish ||--o| rec
+orders ||--o{ statuslog
+user ||--o{ conv
+conv ||--o{ msg
+
+note bottom of dish
+  营养字段统一 nutrition_source = ESTIMATED
+  历史订单只读 order_item 快照
+end note
+
+@enduml
