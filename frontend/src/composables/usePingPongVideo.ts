@@ -32,7 +32,7 @@ interface PingPongOptions {
 
 export function usePingPongVideo(options: PingPongOptions) {
   const tailSeconds = options.tailSeconds ?? 0.8
-  const fadeMs = options.fadeMs ?? 60
+  const fadeMs = options.fadeMs ?? 0
 
   /** 视频帧率（007-1 与 007-reversed 均为 24fps） */
   const FPS = 24
@@ -76,15 +76,23 @@ export function usePingPongVideo(options: PingPongOptions) {
     }
   }
 
-  function crossfade(show: 'forward' | 'reverse', immediate = false) {
+  /**
+   * 瞬时切换可见层。
+   *
+   * 说明：因为两路已经按帧精确对齐，切换瞬间画面内容完全一致，
+   * 所以**不需要任何淡入淡出**。任何过渡时间都会让两路同时可见，
+   * 而两路各自以 24fps 独立推进，哪怕差半帧也会叠出重影/闪烁。
+   * 因此这里直接硬切 opacity，没有任何 transition。
+   */
+  function crossfade(show: 'forward' | 'reverse') {
     const f = forwardEl()
     const r = reverseEl()
     if (!f || !r) {
       return
     }
-    const dur = immediate ? 0 : fadeMs
-    f.style.transition = `opacity ${dur}ms cubic-bezier(0.2, 0.7, 0.2, 1)`
-    r.style.transition = `opacity ${dur}ms cubic-bezier(0.2, 0.7, 0.2, 1)`
+    // 清掉可能残留的 transition，确保立即生效
+    f.style.transition = 'none'
+    r.style.transition = 'none'
     if (show === 'forward') {
       f.style.opacity = '1'
       r.style.opacity = '0'
@@ -155,25 +163,27 @@ export function usePingPongVideo(options: PingPongOptions) {
     } catch {
       /* ignore */
     }
+    // 反向视频可能还没加载完，先等它就绪再播
+    const readyIncoming = await waitPlayable(incoming, 5000)
+    if (!readyIncoming || myGen !== generation) {
+      switching = false
+      return
+    }
     const ok = await safePlay(incoming)
     if (!ok || myGen !== generation) {
       switching = false
       return
     }
 
+    // 立即硬切到新的一路，并马上暂停旧的（避免两路同时可见造成重影）
     phase.value = target
     crossfade(target)
-
-    window.setTimeout(() => {
-      if (myGen === generation) {
-        try {
-          outgoing.pause()
-        } catch {
-          /* ignore */
-        }
-        switching = false
-      }
-    }, fadeMs + 30)
+    try {
+      outgoing.pause()
+    } catch {
+      /* ignore */
+    }
+    switching = false
   }
 
   /** 主循环：检测是否到达切换点 */
@@ -205,7 +215,42 @@ export function usePingPongVideo(options: PingPongOptions) {
     rafId = window.requestAnimationFrame(tick)
   }
 
+  /** 等待视频可以播放（readyState >= 2），避免在未加载完时 play() 报错 */
+  function waitPlayable(el: HTMLVideoElement, timeoutMs = 15000): Promise<boolean> {
+    if (el.readyState >= 2) {
+      return Promise.resolve(true)
+    }
+    return new Promise<boolean>((resolve) => {
+      let done = false
+      const cleanup = () => {
+        el.removeEventListener('loadeddata', ok)
+        el.removeEventListener('canplay', ok)
+        el.removeEventListener('error', fail)
+        window.clearTimeout(timer)
+      }
+      const finish = (v: boolean) => {
+        if (done) {
+          return
+        }
+        done = true
+        cleanup()
+        resolve(v)
+      }
+      const ok = () => finish(true)
+      const fail = () => finish(false)
+      el.addEventListener('loadeddata', ok)
+      el.addEventListener('canplay', ok)
+      el.addEventListener('error', fail)
+      const timer = window.setTimeout(() => finish(el.readyState >= 2), timeoutMs)
+    })
+  }
+
   async function start() {
+    // 已在播放则直接返回，避免每次状态变化都重启动（会打断播放并触发错误）
+    if (playing.value && forwardEl() && !forwardEl()!.paused) {
+      return
+    }
+
     generation++
     const myGen = generation
     const f = forwardEl()
@@ -214,30 +259,44 @@ export function usePingPongVideo(options: PingPongOptions) {
       return
     }
 
+    // 设置 src（只在为空时设置，避免重复 load 打断已缓冲的视频）
     if (!f.getAttribute('src')) {
-      f.src = options.forwardSrc
+      f.setAttribute('src', options.forwardSrc)
       f.load()
     }
     if (!r.getAttribute('src')) {
-      r.src = options.reverseSrc
+      r.setAttribute('src', options.reverseSrc)
       r.load()
+    }
+
+    // 关键：必须等视频真正可播放再 play()，否则会抛 "play() failed"
+    const readyF = await waitPlayable(f)
+    if (myGen !== generation) {
+      return
+    }
+    if (!readyF) {
+      error.value = '首页背景视频加载失败，请点击重试'
+      return
     }
 
     try {
       f.currentTime = 0
-      r.currentTime = 0
     } catch {
       /* ignore */
     }
 
     const ok = await safePlay(f)
-    if (!ok || myGen !== generation) {
-      error.value = '首页背景视频播放失败'
+    if (myGen !== generation) {
+      return
+    }
+    if (!ok) {
+      error.value = '首页背景视频播放被拦截，请点击画面重试'
       return
     }
 
+    error.value = null
     phase.value = 'forward'
-    crossfade('forward', true)
+    crossfade('forward')
     playing.value = true
     switching = false
 

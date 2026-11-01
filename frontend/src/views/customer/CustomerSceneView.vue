@@ -680,7 +680,7 @@ function skipVideo() {
     <template v-if="showBusinessUI">
       <TopBar
         v-model="searchKeyword"
-        :searchable="true"
+        :searchable="scene.activePanel === 'menu'"
         :unread-count="unreadCount"
         @search="onSearch"
         @open-notifications="openNotifications"
