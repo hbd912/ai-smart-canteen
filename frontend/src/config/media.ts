@@ -13,6 +13,7 @@ export type SceneVideoId =
   | '005-1'
   | '006-1'
   | '007-1'
+  | '007-reversed'
   | '008-1'
 
 export interface SceneVideoMeta {
@@ -110,6 +111,16 @@ export const SCENE_VIDEOS: Record<SceneVideoId, SceneVideoMeta> = {
     loop: true,
     subjectArea: { left: 46, right: 92, top: 8, bottom: 100 }
   },
+  '007-reversed': {
+    id: '007-reversed',
+    src: '/assets/media/007-reversed.mp4',
+    poster: '/assets/media/frames/007-1-last.webp',
+    endPoster: '/assets/media/frames/007-1-first.webp',
+    label: '落座待机（倒放）',
+    purpose: '007-1 的预生成反向视频（119 帧 = 正向 f119…f1），与正向交替实现往返循环',
+    loop: true,
+    subjectArea: { left: 46, right: 92, top: 8, bottom: 100 }
+  },
   '008-1': {
     id: '008-1',
     src: '/assets/media/008-1.mp4',
@@ -128,12 +139,18 @@ export const NARRATIVE_VIDEOS: SceneVideoId[] = [
 ]
 
 /** 稳态循环视频 */
-export const LOOP_VIDEOS: SceneVideoId[] = ['007-1', '008-1']
+export const LOOP_VIDEOS: SceneVideoId[] = ['007-1', '007-reversed', '008-1']
 
 /** 全部视频（用于预加载顺序） */
 export const VIDEO_ORDER: SceneVideoId[] = [
-  '001-1', '002-1', '003-1', '004-1', '004-1-reverse', '005-1', '006-1', '007-1', '008-1'
+  '001-1', '002-1', '003-1', '004-1', '004-1-reverse', '005-1', '006-1', '007-1', '007-reversed', '008-1'
 ]
+
+/** ping-pong 往返视频对（正放 <-> 倒放） */
+export const PING_PONG_PAIR = {
+  forward: '/assets/media/007-1.mp4',
+  reverse: '/assets/media/007-reversed.mp4'
+} as const
 
 export const DISH_PLACEHOLDER = '/assets/images/dishes/dish-placeholder.webp'
 

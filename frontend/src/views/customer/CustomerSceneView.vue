@@ -29,8 +29,6 @@ import CheckoutModal from '@/components/menu/CheckoutModal.vue'
 import OrderPanel from '@/components/order/OrderPanel.vue'
 import FavoritesPanel from '@/components/order/FavoritesPanel.vue'
 import NutritionPanel from '@/components/order/NutritionPanel.vue'
-import EatingStatusPanel from '@/components/order/EatingStatusPanel.vue'
-import DeliveryHoldPanel from '@/components/order/DeliveryHoldPanel.vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { useSceneStore } from '@/stores/scene'
 import { useAuthStore } from '@/stores/auth'
@@ -38,9 +36,10 @@ import { useCartStore } from '@/stores/cart'
 import { useFavoriteStore } from '@/stores/favorites'
 import { useToastStore } from '@/stores/toast'
 import { useAudioUnlock } from '@/composables/useAudioUnlock'
+import { usePingPongVideo } from '@/composables/usePingPongVideo'
 import { orderApi } from '@/api/modules'
-import { SCENE_VIDEOS, type SceneVideoId } from '@/config/media'
-import { canOpenMenu, shouldShowBusinessUI, type ActivePanel } from '@/state/sceneMachine'
+import { PING_PONG_PAIR, SCENE_VIDEOS, type SceneVideoId } from '@/config/media'
+import { shouldShowBusinessUI, type ActivePanel } from '@/state/sceneMachine'
 import type { Category, Dish, Order } from '@/types/api'
 
 const router = useRouter()
@@ -52,6 +51,13 @@ const toast = useToastStore()
 const audio = useAudioUnlock()
 
 const controller = useSceneVideoController()
+/** HOME_IDLE 时用 007 正放 <-> 倒放往返循环 */
+const pingPong = usePingPongVideo({
+  forwardSrc: PING_PONG_PAIR.forward,
+  reverseSrc: PING_PONG_PAIR.reverse,
+  tailSeconds: 0.6,
+  fadeMs: 250
+})
 
 // ---------------------------------------------------------------
 // 数据状态
@@ -86,8 +92,13 @@ const quantities = computed<Record<number, number>>(() => {
 const showAuth = computed(() => scene.sceneState === 'LOGIN_REQUIRED' && !auth.isLoggedIn)
 const showBusinessUI = computed(() => shouldShowBusinessUI(scene.sceneState))
 const isEatingScene = computed(() => scene.sceneState === 'EATING')
-const isMenuPanelVisible = computed(() => scene.isMenuPanelVisible)
+const isMenuPanelVisible = computed(() => scene.menuPanelVisible)
+/** 用餐态点餐面板在左侧（人物在右） */
+const menuPanelLeft = computed(() => scene.menuPanelLeft)
+/** 005 播完、停在服务员放盘子画面，等待用户点导航 */
 const isDeliveryHold = computed(() => scene.isDeliveryHold)
+/** HOME_IDLE 使用 ping-pong 往返；其余状态用普通控制器 */
+const isPingPong = computed(() => scene.sceneState === 'HOME_IDLE')
 
 // ---------------------------------------------------------------
 // 声音：注册 video 元素
@@ -100,30 +111,41 @@ let unbindAudioGesture: (() => void) | null = null
 // ---------------------------------------------------------------
 /** 按当前状态启动播放（DOM 就绪与状态变化都会调用） */
 function startPlaybackForCurrentState() {
+  // ============ HOME_IDLE：007 正放 <-> 倒放往返 ============
+  if (isPingPong.value) {
+    if (pingPong.videoA.value && pingPong.videoB.value && !pingPong.playing.value) {
+      void pingPong.start()
+    }
+    return
+  }
+
+  // 离开 HOME_IDLE：停掉 ping-pong
+  if (pingPong.playing.value) {
+    pingPong.pause()
+  }
+
   if (!(controller.layerA.value || controller.layerB.value)) {
     return
   }
   const videoId = scene.currentVideoId
   if (!videoId) {
-    // 稳态末帧：暂停并保持画面
+    // 稳态末帧（DELIVERY_HOLD / MENU_OPEN / CHECKOUT_OPEN）：暂停并保持画面
     controller.pause()
     return
   }
   const mode = scene.shouldLoop ? 'loop' : 'play'
-  // 注意：不能只比较 currentVideoId，因为叙事视频播完后 controller 仍记着它，
-  // 而画面已经停在末帧。这里同时要求「视频确实在播放」才视为已就绪。
+  // 不能只比较 currentVideoId，因为叙事视频播完后 controller 仍记着它，而画面已停在末帧。
   const sameVideo = controller.currentVideoId.value === videoId
   const actuallyPlaying = controller.playing.value
   if (!sameVideo) {
     void controller.load({ videoId, mode })
   } else if (!actuallyPlaying) {
-    // 同一段视频但已停住（叙事播完 / 循环被打断）：强制重载
     void controller.load({ videoId, mode, force: true })
   }
 }
 
 watch(
-  () => [controller.layerA.value, controller.layerB.value] as const,
+  () => [controller.layerA.value, controller.layerB.value, pingPong.videoA.value, pingPong.videoB.value] as const,
   () => {
     startPlaybackForCurrentState()
   }
@@ -177,6 +199,8 @@ controller.onEnded((videoId: SceneVideoId) => {
 onMounted(async () => {
   audioCleanups.push(audio.register(() => controller.layerA.value))
   audioCleanups.push(audio.register(() => controller.layerB.value))
+  audioCleanups.push(audio.register(() => pingPong.videoA.value))
+  audioCleanups.push(audio.register(() => pingPong.videoB.value))
   unbindAudioGesture = audio.bindUnlockOnce()
 
   controller.preload('001-1')
@@ -193,6 +217,7 @@ onBeforeUnmount(() => {
   unbindAudioGesture?.()
   audioCleanups.forEach((fn) => fn())
   controller.destroy()
+  pingPong.destroy()
   scene.stopTick()
 })
 
@@ -303,38 +328,58 @@ function goAdminEntry() {
 // 导航
 // ---------------------------------------------------------------
 function onNavigate(panel: ActivePanel) {
-  // 点当前页：无操作
-  if (scene.activePanel === panel && !scene.transitioning) {
-    return
-  }
   // 转场中拦截
   if (scene.transitioning) {
     showNavHint('镜头切换中，请稍候…')
     return
   }
 
-  // 用餐态点「点餐」：提示珍惜粮食
-  if (isEatingScene.value && panel === 'menu') {
-    showEatingBlockHint()
-    return
-  }
-
-  // 点「点餐」：需要播 004-1 进入俯视视角
-  if (panel === 'menu') {
-    if (canOpenMenu(scene.sceneState)) {
-      return
-    }
-    scene.dispatch({ type: 'OPEN_MENU' })
-    return
-  }
-
-  // 点餐场景下点其他导航：播 004-1-reverse 回退
-  if (scene.menuScene) {
+  // ============ 送达停留（005 播完，画面停在服务员放盘子） ============
+  // 按需求：此时点任意导航（含「点餐」本身）都要触发 006 视角转换，
+  // 所以必须放在「点当前页无操作」之前判断。
+  if (isDeliveryHold.value) {
     scene.dispatch({ type: 'GO_PANEL', panel })
     return
   }
 
-  // 其他情况直接切面板
+  // ============ 用餐态（008 循环） ============
+  if (isEatingScene.value) {
+    if (panel === 'menu') {
+      // 点餐面板已在左侧显示，只需提示冷却
+      showEatingBlockHint()
+      return
+    }
+    // 其他导航：直接切面板，背景保持 008 循环
+    scene.dispatch({ type: 'GO_PANEL', panel })
+    if (panel === 'order') {
+      orderRef.value?.reload()
+    }
+    return
+  }
+
+  // ============ 点餐场景（俯视） ============
+  if (scene.menuScene) {
+    if (panel === 'menu') {
+      return
+    }
+    // 播 004-1-reverse 回退
+    scene.dispatch({ type: 'GO_PANEL', panel })
+    return
+  }
+
+  // ============ 其他面板之间切换 ============
+  // 点当前页：无操作
+  if (scene.activePanel === panel) {
+    return
+  }
+
+  // 点「点餐」：播 004-1 进入俯视视角
+  if (panel === 'menu') {
+    scene.dispatch({ type: 'OPEN_MENU' })
+    return
+  }
+
+  // 直接切面板
   scene.dispatch({ type: 'GO_PANEL', panel })
   if (panel === 'order') {
     orderRef.value?.reload()
@@ -446,7 +491,8 @@ function openDishDetail(dish: Dish) {
 // 结算
 // ---------------------------------------------------------------
 function openCheckout() {
-  if (isEatingScene.value) {
+  // 用餐态（含 005 送达停留、008 用餐循环）：一律拒绝下单
+  if (isEatingScene.value || isDeliveryHold.value) {
     showEatingBlockHint()
     return
   }
@@ -501,16 +547,15 @@ async function syncOrderStatus(status: string) {
   }
 }
 
-/** 送达停留页：开始用餐 */
-function startEatingFromHold() {
-  scene.dispatch({ type: 'START_EATING', panel: scene.activePanel })
-}
-
 // ---------------------------------------------------------------
 // 视频层
 // ---------------------------------------------------------------
 function onVideoAttach(slot: 'A' | 'B', el: HTMLVideoElement | null) {
-  controller.attach(slot, el)
+  if (isPingPong.value) {
+    pingPong.attach(slot, el)
+  } else {
+    controller.attach(slot, el)
+  }
 }
 
 function retryVideo() {
@@ -518,7 +563,7 @@ function retryVideo() {
   controller.retry()
 }
 
-const videoError = computed(() => controller.error.value || scene.videoError)
+const videoError = computed(() => controller.error.value || pingPong.error.value || scene.videoError)
 
 // ---------------------------------------------------------------
 // 顶部栏
@@ -575,9 +620,11 @@ function skipVideo() {
     class="scene-view"
     :data-scene="scene.sceneState"
     :data-panel="scene.activePanel"
+    :data-pp-phase="isPingPong ? pingPong.phase.value : undefined"
   >
     <!-- 视频背景层 -->
     <SceneBackground
+      :ping-pong="isPingPong"
       :active-slot="controller.activeSlot.value"
       :slots="controller.slots.value"
       :still-frame="scene.stillFrameId"
@@ -646,11 +693,15 @@ function skipVideo() {
           @select="onNavigate"
         />
 
-        <main class="scene-content" :class="{ 'scene-content--menu': scene.menuScene }">
-          <!-- 点餐面板：仅在 MENU_OPEN / CHECKOUT_OPEN 显示 -->
+        <main class="scene-content">
+          <!-- ============ 点餐面板 ============
+               MENU_OPEN / CHECKOUT_OPEN：右侧
+               DELIVERY / DELIVERY_HOLD / EATING：左侧（人物在右，左侧留白）
+          -->
           <div
             v-if="isMenuPanelVisible"
-            class="scene-pane scene-pane--menu"
+            class="scene-pane"
+            :class="menuPanelLeft ? 'scene-pane--menu-left' : 'scene-pane--menu-right'"
           >
             <MenuPanel
               ref="menuRef"
@@ -674,11 +725,11 @@ function skipVideo() {
             />
           </div>
 
-          <!-- 其他面板 -->
+          <!-- ============ 其他面板 ============ -->
           <div v-else class="scene-pane scene-pane--left">
             <Transition name="fade" mode="out-in">
               <HomeDashboard
-                v-if="scene.activePanel === 'home' && !isEatingScene"
+                v-if="scene.activePanel === 'home'"
                 key="home"
                 :quantities="quantities"
                 :favorite-ids="favoriteIds"
@@ -713,21 +764,6 @@ function skipVideo() {
                 v-else-if="scene.activePanel === 'nutrition'"
                 ref="nutritionRef"
                 key="nutrition"
-              />
-              <DeliveryHoldPanel
-                v-else-if="isDeliveryHold"
-                key="hold"
-                :order="currentOrder"
-                @start="startEatingFromHold"
-              />
-              <EatingStatusPanel
-                v-else-if="isEatingScene"
-                key="eating"
-                :order="currentOrder"
-                :nutrition="null"
-                :cooldown-minutes="scene.cooldownMinutes"
-                @view-order="onNavigate('order')"
-                @view-nutrition="onNavigate('nutrition')"
               />
             </Transition>
           </div>
@@ -818,11 +854,6 @@ function skipVideo() {
   min-width: 0;
   height: 100%;
   display: flex;
-  justify-content: flex-start;
-}
-
-.scene-content--menu {
-  justify-content: flex-end;
 }
 
 .scene-pane {
@@ -830,12 +861,22 @@ function skipVideo() {
   min-width: 0;
 }
 
+/* 非点餐面板：靠左 */
 .scene-pane--left {
   width: min(62vw, 1080px);
+  margin-right: auto;
 }
 
-.scene-pane--menu {
+/* 点餐面板（俯视视角）：靠右 */
+.scene-pane--menu-right {
   width: min(60vw, 1180px);
+  margin-left: auto;
+}
+
+/* 点餐面板（用餐态）：靠左，避开右侧人物 */
+.scene-pane--menu-left {
+  width: min(52vw, 980px);
+  margin-right: auto;
 }
 
 .boot-layer {
@@ -1027,8 +1068,12 @@ function skipVideo() {
     width: min(66vw, 900px);
   }
 
-  .scene-pane--menu {
+  .scene-pane--menu-right {
     width: min(66vw, 980px);
+  }
+
+  .scene-pane--menu-left {
+    width: min(58vw, 820px);
   }
 }
 
@@ -1046,8 +1091,10 @@ function skipVideo() {
   }
 
   .scene-pane--left,
-  .scene-pane--menu {
+  .scene-pane--menu-right,
+  .scene-pane--menu-left {
     width: 100%;
+    margin: 0;
   }
 
   .scene-tools {

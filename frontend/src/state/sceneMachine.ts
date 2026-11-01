@@ -6,7 +6,12 @@
  * 2. 每段视频的 ended 回调都必须校验「当前 sceneState + videoId」，防止旧事件误触发。
  * 3. 播放动作幂等：同一状态重复点击不会重复启动同一段视频。
  * 4. activePanel 只表示 UI 面板，不决定视频状态。
- * 5. 稳态（HOME_IDLE / EATING）循环播放 007-1 / 008-1，叙事视频只播一次。
+ *
+ * 本轮流程（按需求）：
+ *   点结算 → 播 005 → 播完停在服务员放盘子的画面（右侧仍是点餐 UI）
+ *   → 点任意导航 → 播 006 → 播完进入 EATING，循环 008
+ *   → EATING 时人物在右、左侧空 → 点餐 UI 显示在左侧
+ *   → EATING 时点结算 → 拒绝下单
  */
 import type { SceneVideoId } from '@/config/media'
 
@@ -62,8 +67,8 @@ export const TRANSITION_STATES: SceneState[] = [
   'SEATING'
 ]
 
-/** 用餐态（可播放 006 离开） */
-export const DINING_STATES: SceneState[] = ['DELIVERY', 'DELIVERY_HOLD', 'EATING_TRANSITION', 'EATING']
+/** 用餐态（人物在吃饭，点餐 UI 在左侧） */
+export const DINING_STATES: SceneState[] = ['DELIVERY_HOLD', 'EATING_TRANSITION', 'EATING']
 
 /** 稳态末帧（用海报帧垫底，避免黑屏） */
 export const STILL_FRAME_MAP: Partial<Record<SceneState, SceneVideoId>> = {
@@ -80,6 +85,8 @@ export interface SceneContext {
   checkoutOpen: boolean
   /** MENU_EXITING 结束后要切到的目标面板 */
   pendingPanel: ActivePanel | null
+  /** EATING_TRANSITION 结束后要切到的目标面板 */
+  pendingEatingPanel: ActivePanel | null
   submittedOrderNo: string | null
   videoError: string | null
   loggedIn: boolean
@@ -117,6 +124,7 @@ export function createInitialContext(): SceneContext {
     currentOrderId: null,
     checkoutOpen: false,
     pendingPanel: null,
+    pendingEatingPanel: null,
     submittedOrderNo: null,
     videoError: null,
     loggedIn: false,
@@ -197,12 +205,24 @@ export function sceneReducer(state: SceneContext, action: SceneAction): SceneCon
         : state
 
     /**
-     * 点餐场景下点击其他导航：播 004-1-reverse 回退，结束后渲染目标面板。
-     * 未结算 = 空桌，购物车保留。
+     * 导航统一入口。
+     * - DELIVERY_HOLD：点任意导航 → 播 006（EATING_TRANSITION）
+     * - MENU_OPEN/CHECKOUT_OPEN：播 004-1-reverse 回退
+     * - EATING：仅切面板，背景保持 008 循环
+     * - 其他：直接切面板
      */
     case 'GO_PANEL': {
       if (isTransitioning(state.sceneState)) {
         return state
+      }
+      // 送达停留：点任意导航都触发 006 视角转换
+      if (state.sceneState === 'DELIVERY_HOLD') {
+        return {
+          ...state,
+          sceneState: 'EATING_TRANSITION',
+          pendingEatingPanel: action.panel,
+          checkoutOpen: false
+        }
       }
       if (state.sceneState === 'MENU_OPEN' || state.sceneState === 'CHECKOUT_OPEN') {
         return {
@@ -212,10 +232,7 @@ export function sceneReducer(state: SceneContext, action: SceneAction): SceneCon
           checkoutOpen: false
         }
       }
-      // 用餐态：切面板但背景保持
-      if (isDining(state.sceneState)) {
-        return { ...state, activePanel: action.panel, checkoutOpen: false }
-      }
+      // 用餐态 / 其他：切面板，背景不变
       return { ...state, activePanel: action.panel, checkoutOpen: false }
     }
 
@@ -244,7 +261,7 @@ export function sceneReducer(state: SceneContext, action: SceneAction): SceneCon
       }
       return { ...state, sceneState: 'MENU_OPEN', checkoutOpen: false }
 
-    /** 下单成功：进入 DELIVERY 播 005 */
+    /** 下单成功：进入 DELIVERY 播 005，点餐面板保持可见 */
     case 'ORDER_SUBMITTED':
       return {
         ...state,
@@ -257,7 +274,7 @@ export function sceneReducer(state: SceneContext, action: SceneAction): SceneCon
         videoError: null
       }
 
-    /** 005 播完：停在最后一帧，等用户主动点导航 */
+    /** 005 播完：停在服务员放盘子的画面，右侧仍是点餐 UI，等用户点导航 */
     case 'DELIVERY_ENDED':
       if (state.sceneState !== 'DELIVERY') {
         return state
@@ -265,10 +282,11 @@ export function sceneReducer(state: SceneContext, action: SceneAction): SceneCon
       return {
         ...state,
         sceneState: 'DELIVERY_HOLD',
+        activePanel: 'menu',
         orderStatus: 'delivered'
       }
 
-    /** 用户点击导航：播 006 进入用餐 */
+    /** 兼容：外部直接触发开始用餐 */
     case 'START_EATING':
       if (state.sceneState !== 'DELIVERY_HOLD' && state.sceneState !== 'DELIVERY') {
         return state
@@ -276,10 +294,10 @@ export function sceneReducer(state: SceneContext, action: SceneAction): SceneCon
       return {
         ...state,
         sceneState: 'EATING_TRANSITION',
-        activePanel: action.panel ?? 'home',
-        pendingPanel: action.panel ?? 'home'
+        pendingEatingPanel: action.panel ?? 'home'
       }
 
+    /** 006 播完：进入 EATING，循环 008，切到目标面板 */
     case 'EATING_ENTERED':
       if (state.sceneState !== 'EATING_TRANSITION') {
         return state
@@ -287,8 +305,8 @@ export function sceneReducer(state: SceneContext, action: SceneAction): SceneCon
       return {
         ...state,
         sceneState: 'EATING',
-        activePanel: state.pendingPanel ?? 'home',
-        pendingPanel: null,
+        activePanel: state.pendingEatingPanel ?? 'home',
+        pendingEatingPanel: null,
         orderStatus: 'eating',
         diningCooldownUntil: Date.now() + DINING_COOLDOWN_MINUTES * 60 * 1000
       }
@@ -328,9 +346,9 @@ export const SCENE_LABELS: Record<SceneState, string> = {
   MENU_EXITING: '004-1-reverse 退出菜单',
   CHECKOUT_OPEN: '结算确认',
   DELIVERY: '005-1 送餐中',
-  DELIVERY_HOLD: '餐已送达',
+  DELIVERY_HOLD: '餐已送达 · 等待进入用餐',
   EATING_TRANSITION: '006-1 视角转换',
-  EATING: '用餐中'
+  EATING: '用餐中 · 008 循环'
 }
 
 /** 是否需要显示完整业务 UI */
@@ -338,7 +356,18 @@ export function shouldShowBusinessUI(state: SceneState): boolean {
   return !['INTRO_PLAYING', 'LOGIN_REQUIRED', 'ENTERING', 'SEATING'].includes(state)
 }
 
-/** 是否可以用餐中点餐提示拦截 */
-export function canOpenMenu(state: SceneState): boolean {
-  return state === 'MENU_OPEN' || state === 'CHECKOUT_OPEN'
+/** 点餐面板是否可见：MENU_OPEN / CHECKOUT_OPEN / DELIVERY / DELIVERY_HOLD / EATING */
+export function isMenuPanelVisible(state: SceneState): boolean {
+  return (
+    state === 'MENU_OPEN' ||
+    state === 'CHECKOUT_OPEN' ||
+    state === 'DELIVERY' ||
+    state === 'DELIVERY_HOLD' ||
+    state === 'EATING'
+  )
+}
+
+/** 点餐面板是否在左侧（用餐态：人物在右，UI 在左） */
+export function isMenuPanelLeft(state: SceneState): boolean {
+  return state === 'DELIVERY_HOLD' || state === 'EATING'
 }

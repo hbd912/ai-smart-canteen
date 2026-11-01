@@ -5,7 +5,7 @@
  *
  * 画质说明：
  * - 视频以原生分辨率渲染，不做额外缩放滤镜；
- * - object-fit: cover + 精确 object-position，保证人物头部/手部/餐盘不被裁切；
+ * - object-fit: cover 铺满视口（不留黑边）；
  * - 关闭 image-rendering 相关优化，保持浏览器默认高质量插值。
  */
 import { computed } from 'vue'
@@ -13,6 +13,8 @@ import type { ComponentPublicInstance } from 'vue'
 import { SCENE_VIDEOS, type SceneVideoId } from '@/config/media'
 
 const props = defineProps<{
+  /** 是否 ping-pong 模式（HOME_IDLE：007 正放 <-> 倒放往返） */
+  pingPong: boolean
   activeSlot: 'A' | 'B'
   slots: Record<'A' | 'B', { id: SceneVideoId | null; ready: boolean; visible: boolean }>
   /** 静止帧（稳态末帧），用于视频结束后的垫底 */
@@ -50,6 +52,10 @@ const stillPoster = computed(() => {
 })
 
 const anySlotFilled = computed(() => !!(props.slots.A.id || props.slots.B.id))
+
+/** ping-pong 模式的海报 */
+const ppForwardPoster = computed(() => SCENE_VIDEOS['007-1'].poster)
+const ppReversePoster = computed(() => SCENE_VIDEOS['007-reversed'].poster)
 </script>
 
 <template>
@@ -64,26 +70,59 @@ const anySlotFilled = computed(() => !!(props.slots.A.id || props.slots.B.id))
       />
     </Transition>
 
-    <video
-      v-for="slot in (['A', 'B'] as const)"
-      :key="slot"
-      :ref="(el) => onRef(slot, el)"
-      class="scene-bg__video"
-      :class="{
-        'scene-bg__video--visible': slots[slot].visible && slots[slot].ready,
-        'scene-bg__video--hidden': !slots[slot].id
-      }"
-      :poster="posterOf(slot)"
-      playsinline
-      muted
-      preload="auto"
-      disablepictureinpicture
-      disableRemotePlayback
-      :controls="false"
-      @ended="slot === activeSlot && emit('ended')"
-      @timeupdate="slot === activeSlot && emit('timeupdate')"
-      @error="slot === activeSlot && emit('error')"
-    ></video>
+    <!-- ping-pong 模式：A=正向 007-1，B=反向 007-reversed，两路常驻由 JS 控制透明度 -->
+    <template v-if="props.pingPong">
+      <video
+        :ref="(el) => onRef('A', el)"
+        class="scene-bg__video scene-bg__video--pp"
+        :poster="ppForwardPoster"
+        playsinline
+        muted
+        preload="auto"
+        disablepictureinpicture
+        disableRemotePlayback
+        :controls="false"
+        @timeupdate="emit('timeupdate')"
+        @error="emit('error')"
+      ></video>
+      <video
+        :ref="(el) => onRef('B', el)"
+        class="scene-bg__video scene-bg__video--pp"
+        :poster="ppReversePoster"
+        playsinline
+        muted
+        preload="auto"
+        disablepictureinpicture
+        disableRemotePlayback
+        :controls="false"
+        @timeupdate="emit('timeupdate')"
+        @error="emit('error')"
+      ></video>
+    </template>
+
+    <!-- 普通模式：双槽交叉淡化 -->
+    <template v-else>
+      <video
+        v-for="slot in (['A', 'B'] as const)"
+        :key="slot"
+        :ref="(el) => onRef(slot, el)"
+        class="scene-bg__video"
+        :class="{
+          'scene-bg__video--visible': slots[slot].visible && slots[slot].ready,
+          'scene-bg__video--hidden': !slots[slot].id
+        }"
+        :poster="posterOf(slot)"
+        playsinline
+        muted
+        preload="auto"
+        disablepictureinpicture
+        disableRemotePlayback
+        :controls="false"
+        @ended="slot === activeSlot && emit('ended')"
+        @timeupdate="slot === activeSlot && emit('timeupdate')"
+        @error="slot === activeSlot && emit('error')"
+      ></video>
+    </template>
 
     <div class="scene-bg__ambient"></div>
     <div class="scene-bg__vignette"></div>
@@ -114,7 +153,8 @@ const anySlotFilled = computed(() => !!(props.slots.A.id || props.slots.B.id))
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  /* 需求：视频画面要铺满整个视口，不留黑边 */
+  object-fit: cover;
   object-position: 50% 50%;
   image-rendering: auto;
   pointer-events: none;
@@ -129,6 +169,11 @@ const anySlotFilled = computed(() => !!(props.slots.A.id || props.slots.B.id))
 .scene-bg__video--hidden {
   opacity: 0;
   visibility: hidden;
+}
+
+/* ping-pong 两路：初始都可见，由 JS 控制 opacity */
+.scene-bg__video--pp {
+  opacity: 1;
 }
 
 .scene-bg__ambient {
