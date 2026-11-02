@@ -295,8 +295,8 @@ defineExpose({ reload: load })
 .home-dash__row {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
-  align-items: start;
-  /* 卡片之间的呼吸感：比 --space-4 更大，并随屏幕缩放 */
+  /* 两列卡片等高对齐 */
+  align-items: stretch;
   gap: calc(var(--space-6) * var(--ui-scale, 1));
 }
 
