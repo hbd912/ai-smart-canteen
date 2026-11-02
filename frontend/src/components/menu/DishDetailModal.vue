@@ -5,6 +5,7 @@
  */
 import { computed } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
+import DishReviewSection from '@/components/menu/DishReviewSection.vue'
 import { DISH_PLACEHOLDER } from '@/config/media'
 import { formatCalories, formatPrice } from '@/utils/format'
 import type { Dish } from '@/types/api'
@@ -119,6 +120,9 @@ const nutritionRows = computed(() => {
               </div>
             </div>
           </section>
+
+          <!-- 用户评价：评分汇总 + 星级分布 + 评价列表 -->
+          <DishReviewSection :dish-id="dish.id" />
 
           <p class="detail__note">
             <AppIcon name="info" :size="12" />

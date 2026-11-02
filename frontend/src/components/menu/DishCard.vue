@@ -32,6 +32,17 @@ const emit = defineEmits<{
 
 const imageSrc = computed(() => props.dish.imageUrl || DISH_PLACEHOLDER)
 const unavailable = computed(() => props.dish.available === false)
+
+/** 评分角标：有评价时显示，如「4.1」 */
+const ratingBadge = computed(() => {
+  const avg = props.dish.avgRating == null ? 0 : Number(props.dish.avgRating)
+  const count = props.dish.reviewCount ?? 0
+  if (!count || avg <= 0) {
+    return null
+  }
+  return avg.toFixed(1)
+})
+const ratingCount = computed(() => props.dish.reviewCount ?? 0)
 const displayBadge = computed(() => {
   if (props.badge) {
     return props.badge
@@ -83,6 +94,15 @@ function onFavorite(event: Event) {
     <div class="dish-card__media">
       <img :src="imageSrc" :alt="dish.name" class="dish-card__img" loading="lazy" />
       <span v-if="displayBadge" class="dish-card__badge">{{ displayBadge }}</span>
+      <!-- 评分角标：参考项目 DishCard 的设计，图片左下角 -->
+      <span
+        v-if="ratingBadge"
+        class="dish-card__rating"
+        :title="`${ratingCount} 条评价`"
+      >
+        <AppIcon name="star" :size="11" :filled="true" />
+        <span class="num">{{ ratingBadge }}</span>
+      </span>
       <button
         v-if="showFavorite"
         class="dish-card__fav"
@@ -229,6 +249,26 @@ function onFavorite(event: Event) {
 .dish-card__fav--on {
   color: var(--amber-500);
   animation: pop-badge 340ms var(--ease-enter);
+}
+
+/* 评分角标样式（对齐参考项目：白色胶囊 + 星星 + 数字） */
+.dish-card__rating {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 253, 248, 0.94);
+  color: var(--amber-600);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 2px 8px rgba(44, 42, 38, 0.14);
+  backdrop-filter: blur(6px);
 }
 
 .dish-card__mask {

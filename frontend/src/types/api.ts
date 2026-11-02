@@ -93,6 +93,44 @@ export interface Dish {
   availabilityText?: string
   recommendationBadge?: string | null
   recommendationSort?: number | null
+  /** 平均评分 0.0~5.0 */
+  avgRating?: number | null
+  /** 评价数量 */
+  reviewCount?: number | null
+  /** 好评率（4-5 星占比，百分比） */
+  goodRate?: number | null
+}
+
+/* =========================================================
+   菜品评价
+   ========================================================= */
+
+export interface DishReview {
+  id: number
+  dishId: number
+  dishName?: string | null
+  userId?: number | null
+  authorNickname: string
+  authorInitial: string
+  rating: number
+  content?: string | null
+  anonymous: boolean
+  createdAt: string
+}
+
+export interface DishRatingSummary {
+  dishId: number
+  avgRating: number
+  reviewCount: number
+  star5: number
+  star4: number
+  star3: number
+  star2: number
+  star1: number
+  /** 好评率（百分比） */
+  goodRate: number
+  reviewed: boolean
+  recentReviews: DishReview[]
 }
 
 export interface CartItem {

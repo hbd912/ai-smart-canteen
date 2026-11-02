@@ -14,7 +14,9 @@ import type {
   Order,
   PageResult,
   UploadResult,
-  UserInfo
+  UserInfo,
+  DishRatingSummary,
+  DishReview
 } from '@/types/api'
 
 /** ---------- 认证 ---------- */
@@ -145,4 +147,25 @@ export const adminApi = {
   statisticsCategorySales: () => get<Record<string, unknown>>('/api/v1/admin/statistics/category-sales', undefined, true),
   statisticsHourly: () => get<Record<string, unknown>>('/api/v1/admin/statistics/hourly-distribution', undefined, true),
   statisticsUserGrowth: () => get<Record<string, unknown>>('/api/v1/admin/statistics/user-growth', undefined, true)
+}
+
+/** ---------- 菜品评价 ---------- */
+export const reviewApi = {
+  /** 评分汇总（匿名可读） */
+  summary: (dishId: number) => get<DishRatingSummary>(`/api/v1/reviews/dishes/${dishId}/summary`),
+  /** 评价分页列表 */
+  list: (dishId: number, page = 1, pageSize = 10) =>
+    get<PageResult<DishReview>>(`/api/v1/reviews/dishes/${dishId}`, { page, pageSize }),
+  /** 我的评价 */
+  mine: () => get<DishReview[]>('/api/v1/reviews/mine'),
+  /** 提交或更新评价 */
+  submit: (payload: {
+    dishId: number
+    rating: number
+    content?: string
+    anonymous?: boolean
+    orderId?: number | null
+  }) => post<DishReview>('/api/v1/reviews', payload),
+  /** 删除自己的评价 */
+  remove: (reviewId: number) => del<void>(`/api/v1/reviews/${reviewId}`)
 }
