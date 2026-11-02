@@ -59,7 +59,6 @@ const nutritionRows = computed(() => {
 
         <div class="detail__media">
           <img :src="imageSrc" :alt="dish.name" />
-          <span class="detail__illustrative">示意图片</span>
           <button
             class="detail__fav"
             :class="{ 'detail__fav--on': favorited }"
@@ -214,16 +213,6 @@ const nutritionRows = computed(() => {
   object-fit: cover;
 }
 
-.detail__illustrative {
-  position: absolute;
-  left: 12px;
-  bottom: 12px;
-  padding: 3px 10px;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 253, 248, 0.9);
-  color: var(--ink-500);
-  font-size: 10.5px;
-}
 
 .detail__fav {
   position: absolute;

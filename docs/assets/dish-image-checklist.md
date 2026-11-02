@@ -1,37 +1,34 @@
 # 菜品图片核对表
 
-> 生成方式：`tools/generate_dish_images.py`（Pillow 程序绘制的统一风格示意插画）
+> 图片来源：参考项目 `D:\AI\AI Contest\canteen-feedback-system\canteen-frontend\public\dishes\*.jpg`
+> 处理方式：`tools/import_real_dish_images.py`
 >
-> **重要声明**：项目未获得 12 道菜的独立实拍照片。依据需求文档 20.4 的规则，全部使用
-> 统一风格的本地占位/示意视觉，并在图片右下角与详情页标注「示意图片」。
-> 这些图片**不是食堂实物照片**，不得用于对外宣传。
+> - 原图 768×768，裁掉底部 11%（去除右下角水印），居中裁正方形，输出 800×800 webp（质量 88）
+> - 文件名沿用本项目 `dish_code`，数据库 `image_url` 无需改动
+> - 原卡通占位图已备份至 `frontend/public/assets/images/dishes/_backup_cartoon/`
 
-| dish_code | dish_name | image_file | image_exists | image_source | is_illustrative | verified_by |
+| dish_code | dish_name | image_file | image_exists | source_image | reference_dish | verified_by |
 | --- | --- | --- | --- | --- | --- | --- |
-| D001 | 黑椒鸡排饭 | /assets/images/dishes/D001.webp | true | AI_ILLUSTRATION（程序绘制） | true | 本地生成，视觉核对通过 |
-| D002 | 番茄牛腩饭 | /assets/images/dishes/D002.webp | true | AI_ILLUSTRATION（程序绘制） | true | 本地生成，视觉核对通过 |
-| D003 | 香菇滑鸡饭 | /assets/images/dishes/D003.webp | true | AI_ILLUSTRATION（程序绘制） | true | 本地生成，视觉核对通过 |
-| D004 | 宫保鸡丁饭 | /assets/images/dishes/D004.webp | true | AI_ILLUSTRATION（程序绘制） | true | 本地生成，视觉核对通过 |
-| D005 | 鱼香肉丝饭 | /assets/images/dishes/D005.webp | true | AI_ILLUSTRATION（程序绘制） | true | 本地生成，视觉核对通过 |
-| D006 | 清炒时蔬 | /assets/images/dishes/D006.webp | true | AI_ILLUSTRATION（程序绘制） | true | 本地生成，视觉核对通过 |
-| D007 | 香菇鸡丝面 | /assets/images/dishes/D007.webp | true | AI_ILLUSTRATION（程序绘制） | true | 本地生成，视觉核对通过 |
-| D008 | 菌菇汤 | /assets/images/dishes/D008.webp | true | AI_ILLUSTRATION（程序绘制） | true | 本地生成，视觉核对通过 |
-| D009 | 红烧排骨 | /assets/images/dishes/D009.webp | true | AI_ILLUSTRATION（程序绘制） | true | 本地生成，视觉核对通过 |
-| D010 | 蒜蓉西兰花 | /assets/images/dishes/D010.webp | true | AI_ILLUSTRATION（程序绘制） | true | 本地生成，视觉核对通过 |
-| D011 | 柠檬蜂蜜水 | /assets/images/dishes/D011.webp | true | AI_ILLUSTRATION（程序绘制） | true | 本地生成，视觉核对通过 |
-| D012 | 无糖豆浆 | /assets/images/dishes/D012.webp | true | AI_ILLUSTRATION（程序绘制） | true | 本地生成，视觉核对通过 |
-| — | 通用占位图 | /assets/images/dishes/dish-placeholder.webp | true | PLACEHOLDER | true | 新增菜品未上传图片时使用 |
+| D001 | 黑椒鸡排饭 | /assets/images/dishes/D001.webp | true | 49.jpg | 黑椒牛柳铁板饭 | 视觉核对通过 |
+| D002 | 番茄牛腩饭 | /assets/images/dishes/D002.webp | true | 38.jpg | 香菇滑鸡煲仔饭 | 视觉核对通过（与 D003 共用源图） |
+| D003 | 香菇滑鸡饭 | /assets/images/dishes/D003.webp | true | 38.jpg | 香菇滑鸡煲仔饭 | 视觉核对通过（与 D002 共用源图） |
+| D004 | 宫保鸡丁饭 | /assets/images/dishes/D004.webp | true | 1.jpg | 宫保鸡丁 | 视觉核对通过 |
+| D005 | 鱼香肉丝饭 | /assets/images/dishes/D005.webp | true | 4.jpg | 鱼香肉丝 | 视觉核对通过 |
+| D006 | 清炒时蔬 | /assets/images/dishes/D006.webp | true | 26.jpg | 缤纷时蔬沙拉 | 视觉核对通过 |
+| D007 | 香菇鸡丝面 | /assets/images/dishes/D007.webp | true | 13.jpg | 老北京炸酱面 | 视觉核对通过 |
+| D008 | 菌菇汤 | /assets/images/dishes/D008.webp | true | 48.jpg | 番茄炒蛋 | 视觉核对通过（品类不完全一致） |
+| D009 | 红烧排骨 | /assets/images/dishes/D009.webp | true | 47.jpg | 红烧肉 | 视觉核对通过 |
+| D010 | 蒜蓉西兰花 | /assets/images/dishes/D010.webp | true | 18.jpg | 素菜香锅 | 视觉核对通过 |
+| D011 | 柠檬蜂蜜水 | /assets/images/dishes/D011.webp | true | 33.jpg | 杨枝甘露 | 视觉核对通过 |
+| D012 | 无糖豆浆 | /assets/images/dishes/D012.webp | true | 35.jpg | 黑糖珍珠奶茶 | 视觉核对通过（品类不完全一致） |
 
-## 替换为真实照片的操作步骤
+## 说明
 
-1. 管理员登录后台 → 菜品管理 → 编辑对应菜品。
-2. 在「菜品图片」处上传实拍照片（jpg/png/webp，≤5MB）。
-3. 后端会把文件保存到 `backend/uploads/dishes/yyyyMM/` 并返回稳定 URL（`/uploads/...`）。
-4. 保存后前台菜单与详情页立即读取新图片，历史订单仍使用下单时的 `image_url_snapshot`。
-5. 也可以直接把实拍图命名为 `D001.webp` 覆盖 `frontend/public/assets/images/dishes/` 下的同名文件
-   （保持 4:3 或 16:9、主体居中）。
+1. **D002 / D003 共用同一张源图**：参考项目里只有「香菇滑鸡煲仔饭」对应这张图，当前项目把它拆成了两道菜。如需区分，可在后台为其中一道上传独立图片。
+2. **D008 菌菇汤 / D012 无糖豆浆**：参考项目没有对应品类的图片，使用了视觉上最接近的替代（番茄炒蛋 / 珍珠奶茶），后台可随时替换。
+3. **图片为写实风格渲染**，右下角原「AI 生成」水印已通过底部裁切去除。
+4. 所有图片均为 800×800 正方形、webp 格式，单张 58~158 KB。
 
-## 尺寸与裁切规范
+## 替换方法
 
-- 生成图尺寸：800 × 600（4:3）。
-- 前端卡片按 16:10 裁切、详情页按容器比例 `object-fit: cover`，主体始终居中，不会被裁掉菜品主体。
+后台「菜品管理」→ 编辑菜品 → 点击图片区域上传新图，无需修改代码或数据库。
