@@ -36,6 +36,12 @@ public class DishVo {
     private Integer recommendRank;
     private List<String> tags;
     private Integer sortOrder;
+    /** 平均评分 0.0~5.0 */
+    private BigDecimal avgRating;
+    /** 评价数量 */
+    private Integer reviewCount;
+    /** 好评率（4-5 星占比，百分比） */
+    private BigDecimal goodRate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

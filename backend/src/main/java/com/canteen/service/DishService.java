@@ -485,6 +485,34 @@ public class DishService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 从 dish 的冗余字段推算好评率。
+     *
+     * 说明：好评率需要 4/5 星占比，dish 表只存了 avg_rating 与 review_count，
+     * 精确值由 DishReviewService.summary 提供。列表页为了性能，
+     * 这里用平均分粗略映射：avg>=4.5 -> 95%，avg>=4.0 -> 85%，avg>=3.5 -> 70%，
+     * 无评价时为 0。详情页展示的是 summary 接口返回的精确值。
+     */
+    private BigDecimal computeGoodRate(Dish dish) {
+        if (dish.getReviewCount() == null || dish.getReviewCount() == 0 || dish.getAvgRating() == null) {
+            return BigDecimal.ZERO;
+        }
+        double avg = dish.getAvgRating().doubleValue();
+        double rate;
+        if (avg >= 4.5) {
+            rate = 95.0;
+        } else if (avg >= 4.0) {
+            rate = 85.0;
+        } else if (avg >= 3.5) {
+            rate = 70.0;
+        } else if (avg >= 3.0) {
+            rate = 50.0;
+        } else {
+            rate = 30.0;
+        }
+        return BigDecimal.valueOf(rate).setScale(1, java.math.RoundingMode.HALF_UP);
+    }
+
     public DishVo toVo(Dish dish, Long currentUserId, DishCategory category, HomeRecommendation recommendation) {
         return toVo(dish, currentUserId, category, recommendation, loadFavoriteIds(currentUserId));
     }
@@ -520,6 +548,9 @@ public class DishService {
         vo.setRecommendFlag(dish.getRecommendFlag() != null && dish.getRecommendFlag() == 1);
         vo.setRecommendRank(dish.getRecommendRank());
         vo.setSortOrder(dish.getSortOrder());
+        vo.setAvgRating(dish.getAvgRating());
+        vo.setReviewCount(dish.getReviewCount());
+        vo.setGoodRate(computeGoodRate(dish));
         vo.setCreatedAt(dish.getCreatedAt());
         vo.setUpdatedAt(dish.getUpdatedAt());
 

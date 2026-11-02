@@ -48,6 +48,11 @@ public class Dish {
     private Integer sortOrder;
     private Long createdBy;
 
+    /** 平均评分 0.0~5.0（由 dish_review 聚合而来，冗余存储） */
+    private BigDecimal avgRating;
+    /** 评价数量 */
+    private Integer reviewCount;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 
