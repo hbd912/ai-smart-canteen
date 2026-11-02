@@ -26,6 +26,7 @@ import HomeDashboard from '@/components/home/HomeDashboard.vue'
 import MenuPanel from '@/components/menu/MenuPanel.vue'
 import DishDetailModal from '@/components/menu/DishDetailModal.vue'
 import CheckoutModal from '@/components/menu/CheckoutModal.vue'
+import ReviewCenter from '@/components/order/ReviewCenter.vue'
 import OrderPanel from '@/components/order/OrderPanel.vue'
 import FavoritesPanel from '@/components/order/FeaturedPanel.vue'
 import NutritionPanel from '@/components/order/NutritionPanel.vue'
@@ -72,7 +73,7 @@ const introReady = ref(false)
 const navHint = ref<string | null>(null)
 const notificationsOpen = ref(false)
 const menuRef = ref<InstanceType<typeof MenuPanel> | null>(null)
-const orderRef = ref<InstanceType<typeof OrderPanel> | null>(null)
+// 订单页已改为评价中心，不再需要 OrderPanel 实例
 const nutritionRef = ref<InstanceType<typeof NutritionPanel> | null>(null)
 
 let navHintTimer = 0
@@ -355,7 +356,7 @@ function onNavigate(panel: ActivePanel) {
     // 其他导航：直接切面板，背景保持 008 循环
     scene.dispatch({ type: 'GO_PANEL', panel })
     if (panel === 'order') {
-      orderRef.value?.reload()
+      void 0
     }
     return
   }
@@ -385,7 +386,7 @@ function onNavigate(panel: ActivePanel) {
   // 直接切面板
   scene.dispatch({ type: 'GO_PANEL', panel })
   if (panel === 'order') {
-    orderRef.value?.reload()
+    void 0
   }
 }
 
@@ -749,12 +750,18 @@ function skipVideo() {
                 @open-nutrition="onNavigate('nutrition')"
                 @open-orders="onNavigate('order')"
               />
-              <OrderPanel
-                v-else-if="scene.activePanel === 'order'"
-                ref="orderRef"
-                key="order"
-                @refresh-scene="restoreSceneFromBackend"
-              />
+              <section v-else-if="scene.activePanel === 'order'" class="panel-card glass-card scroll-y">
+                <header class="panel-head">
+                  <div>
+                    <h2 class="section-title">
+                      <span class="section-title__icon"><AppIcon name="calendar" :size="15" /></span>
+                      我的订单
+                    </h2>
+                    <p class="section-subtitle">按订单明细列出待评价 / 已评价，可直接评价</p>
+                  </div>
+                </header>
+                <ReviewCenter :active="scene.activePanel === 'order'" />
+              </section>
               <FavoritesPanel
                 v-else-if="scene.activePanel === 'favorites'"
                 key="favorites"
