@@ -480,13 +480,13 @@ async function toggleFavorite(dish: Dish) {
 }
 
 function onOrderDishFromWork(dishId: number) {
-  // 从精选作品跳转到点餐页：直接进入点餐视图，由用户自行找到菜品
+  // 从精选作品 / AI 营养建议跳转到点餐页
   if (!scene.menuScene && !scene.dining) {
     scene.dispatch({ type: 'OPEN_MENU' })
-  } else {
+  } else if (scene.activePanel !== 'menu') {
     scene.dispatch({ type: 'GO_PANEL', panel: 'menu' })
   }
-  showNavHint('已切换到点餐，找到你想吃的那道菜下单吧')
+  showNavHint('已切换到点餐，找到这道菜就可以直接加购啦')
   void dishId
 }
 
@@ -765,6 +765,7 @@ function skipVideo() {
                 v-else-if="scene.activePanel === 'nutrition'"
                 ref="nutritionRef"
                 key="nutrition"
+                @order-dish="onOrderDishFromWork"
               />
             </Transition>
           </div>

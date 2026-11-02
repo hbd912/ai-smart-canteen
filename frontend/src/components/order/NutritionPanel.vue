@@ -5,6 +5,7 @@
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
+import NutritionAdvice from '@/components/order/NutritionAdvice.vue'
 import ProgressRing from '@/components/common/ProgressRing.vue'
 import { nutritionApi } from '@/api/modules'
 import type { NutritionSummary, NutritionTrendPoint } from '@/types/api'
@@ -108,6 +109,7 @@ watch(range, load)
 onMounted(load)
 
 defineExpose({ reload: load })
+const emit = defineEmits<{ (e: 'order-dish', dishId: number): void }>()
 </script>
 
 <template>
@@ -168,6 +170,7 @@ defineExpose({ reload: load })
             <span class="metric-card__icon"><AppIcon :name="metric.icon" :size="14" /></span>
             <span class="metric-card__label">{{ metric.label }}</span>
           </div>
+
           <p class="metric-card__value num">
             {{ Math.round(Number(metric.value)) }}<small>{{ metric.unit }}</small>
           </p>
@@ -180,6 +183,9 @@ defineExpose({ reload: load })
           <p class="metric-card__target">参考目标 {{ metric.target }}{{ metric.unit }}</p>
         </div>
       </div>
+
+      <!-- AI 营养助手：分析缺口并推荐菜品 -->
+      <NutritionAdvice :days="range" @order-dish="(id) => emit('order-dish', id)" />
 
       <!-- 三大营养素构成（参考项目饼图思路，用 conic-gradient 实现，无需图表库） -->
       <section v-if="macroShare.length > 0" class="macro-card">

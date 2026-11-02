@@ -7,6 +7,7 @@
  */
 import { computed, ref, watch } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
+import ReviewCenter from '@/components/order/ReviewCenter.vue'
 import { workApi } from '@/api/modules'
 import { useToastStore } from '@/stores/toast'
 import { formatDateTime, formatMoney } from '@/utils/format'
@@ -42,6 +43,8 @@ interface Work {
   comments?: WorkComment[]
 }
 
+/** 视图模式：featured = 精选作品流，review = 评价中心 */
+const viewMode = ref<'featured' | 'review'>('featured')
 const loading = ref(false)
 const works = ref<Work[]>([])
 const sort = ref<'hot' | 'latest'>('hot')
@@ -158,25 +161,42 @@ defineExpose({ reload: load })
         </h2>
         <p class="section-subtitle">同学们分享的真实用餐记录，点开可以看评价和下单</p>
       </div>
-      <div class="seg-control">
+      <div class="featured__head-right">
         <button
-          class="seg-control__btn"
-          :class="{ 'seg-control__btn--active': sort === 'hot' }"
+          class="btn btn--sm featured__review-btn"
+          :class="viewMode === 'review' ? 'btn--primary' : 'btn--ghost'"
           type="button"
-          @click="switchSort('hot')"
+          @click="viewMode = viewMode === 'featured' ? 'review' : 'featured'"
         >
-          最热
+          <AppIcon name="star" :size="13" />
+          {{ viewMode === 'review' ? '返回精选' : '评价中心' }}
         </button>
-        <button
-          class="seg-control__btn"
-          :class="{ 'seg-control__btn--active': sort === 'latest' }"
-          type="button"
-          @click="switchSort('latest')"
-        >
-          最新
-        </button>
+        <div v-if="viewMode === 'featured'" class="seg-control">
+          <button
+            class="seg-control__btn"
+            :class="{ 'seg-control__btn--active': sort === 'hot' }"
+            type="button"
+            @click="switchSort('hot')"
+          >
+            最热
+          </button>
+          <button
+            class="seg-control__btn"
+            :class="{ 'seg-control__btn--active': sort === 'latest' }"
+            type="button"
+            @click="switchSort('latest')"
+          >
+            最新
+          </button>
+        </div>
       </div>
     </header>
+
+    <!-- 评价中心 -->
+    <ReviewCenter v-if="viewMode === 'review'" :active="viewMode === 'review'" />
+
+    <!-- 精选作品流 -->
+    <template v-else>
 
     <div v-if="loading" class="featured__cols">
       <div class="featured__col">
@@ -281,6 +301,8 @@ defineExpose({ reload: load })
         </article>
       </div>
     </div>
+
+    </template>
 
     <!-- 作品详情 -->
     <Transition name="fade">
@@ -829,5 +851,19 @@ defineExpose({ reload: load })
   .wd__media {
     max-height: 200px;
   }
+}
+
+.featured__head-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.featured__review-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
 }
 </style>

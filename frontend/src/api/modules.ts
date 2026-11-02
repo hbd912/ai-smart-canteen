@@ -76,7 +76,8 @@ export const favoriteApi = {
 /** ---------- 营养 ---------- */
 export const nutritionApi = {
   summary: (days = 7) => get<NutritionSummary>('/api/v1/nutrition/summary', { days }),
-  trends: (days = 7) => get<NutritionSummary['trend']>('/api/v1/nutrition/trends', { days })
+  trends: (days = 7) => get<NutritionSummary['trend']>('/api/v1/nutrition/trends', { days }),
+  advice: (days = 7) => get<Record<string, unknown>>('/api/v1/nutrition/advice', { days })
 }
 
 /** ---------- AI ---------- */

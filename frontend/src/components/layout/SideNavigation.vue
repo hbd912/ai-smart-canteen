@@ -27,7 +27,6 @@ interface NavItem {
 const items: NavItem[] = [
   { key: 'home', label: '首页', icon: 'home' },
   { key: 'menu', label: '点餐', icon: 'utensils' },
-  { key: 'order', label: '订单', icon: 'calendar' },
   { key: 'favorites', label: '精选', icon: 'star' },
   { key: 'nutrition', label: '营养管理', icon: 'bar-chart' }
 ]

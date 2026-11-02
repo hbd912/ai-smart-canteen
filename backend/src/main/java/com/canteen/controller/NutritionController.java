@@ -2,7 +2,9 @@ package com.canteen.controller;
 
 import com.canteen.common.ApiResponse;
 import com.canteen.security.SecurityUtils;
+import com.canteen.service.NutritionAdviceService;
 import com.canteen.service.NutritionService;
+import com.canteen.vo.NutritionAdviceVo;
 import com.canteen.vo.NutritionSummaryVo;
 import com.canteen.vo.NutritionTrendPointVo;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,6 +24,7 @@ import java.util.List;
 public class NutritionController {
 
     private final NutritionService nutritionService;
+    private final NutritionAdviceService nutritionAdviceService;
 
     @Operation(summary = "当前用户营养摄入汇总")
     @GetMapping("/summary")
@@ -33,5 +36,11 @@ public class NutritionController {
     @GetMapping("/trends")
     public ApiResponse<List<NutritionTrendPointVo>> trends(@RequestParam(defaultValue = "7") int days) {
         return ApiResponse.ok(nutritionService.trend(SecurityUtils.currentUserId(), days));
+    }
+
+    @Operation(summary = "AI 营养建议：分析缺口并推荐菜品")
+    @GetMapping("/advice")
+    public ApiResponse<NutritionAdviceVo> advice(@RequestParam(defaultValue = "7") int days) {
+        return ApiResponse.ok(nutritionAdviceService.advice(SecurityUtils.currentUserId(), days));
     }
 }
