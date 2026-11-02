@@ -41,6 +41,34 @@ public class MediaService {
 
     private final CanteenProperties properties;
 
+    /**
+     * 通过文件头魔数判断是否为受支持的图片格式。
+     * 支持 JPEG / PNG / WEBP / GIF。
+     */
+    private boolean isImageMagic(byte[] b, int len) {
+        if (len < 12) {
+            return false;
+        }
+        // JPEG: FF D8 FF
+        if ((b[0] & 0xFF) == 0xFF && (b[1] & 0xFF) == 0xD8 && (b[2] & 0xFF) == 0xFF) {
+            return true;
+        }
+        // PNG: 89 50 4E 47
+        if ((b[0] & 0xFF) == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G') {
+            return true;
+        }
+        // GIF: GIF87a / GIF89a
+        if (b[0] == 'G' && b[1] == 'I' && b[2] == 'F') {
+            return true;
+        }
+        // WEBP: RIFF....WEBP
+        if (b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F'
+                && b[8] == 'W' && b[9] == 'E' && b[10] == 'B' && b[11] == 'P') {
+            return true;
+        }
+        return false;
+    }
+
     public UploadResultVo uploadDishImage(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw BizException.of(ErrorCode.BAD_REQUEST, "请选择要上传的图片");
@@ -63,18 +91,31 @@ public class MediaService {
         if (!StringUtils.hasText(contentType) || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase(Locale.ROOT))) {
             throw BizException.of(ErrorCode.BAD_REQUEST, "文件类型不合法，仅支持图片");
         }
-        // 真实内容校验：尝试解码为图片，防止伪装扩展名的可执行文件
-        int width;
-        int height;
+        // 真实内容校验：读取文件头魔数，判断是否真的是图片。
+        //
+        // 说明：不能用 ImageIO.read()，JDK 原生不支持 webp，
+        // 而本项目菜品图本身就是 webp，会导致合法图片被拒。
+        int width = 0;
+        int height = 0;
+        byte[] head = new byte[32];
+        int read;
         try (InputStream in = file.getInputStream()) {
-            BufferedImage image = ImageIO.read(in);
-            if (image == null) {
-                throw BizException.of(ErrorCode.BAD_REQUEST, "文件不是有效的图片");
-            }
-            width = image.getWidth();
-            height = image.getHeight();
+            read = in.readNBytes(head, 0, head.length);
         } catch (IOException ex) {
             throw BizException.of(ErrorCode.BAD_REQUEST, "图片读取失败，请重新选择");
+        }
+        if (!isImageMagic(head, read)) {
+            throw BizException.of(ErrorCode.BAD_REQUEST, "文件不是有效的图片");
+        }
+        // 能解码时顺带取尺寸（png / jpg 可解，webp 交给前端按原图显示）
+        try (InputStream in = file.getInputStream()) {
+            BufferedImage image = ImageIO.read(in);
+            if (image != null) {
+                width = image.getWidth();
+                height = image.getHeight();
+            }
+        } catch (IOException ignored) {
+            // 解码失败但魔数已确认是图片，允许通过
         }
 
         String subDir = "dishes/" + LocalDate.now().format(DATE_DIR);

@@ -196,5 +196,15 @@ export const workApi = {
   comments: (id: number) => get<Record<string, unknown>[]>(`/api/v1/works/${id}/comments`),
   /** 发表评论 */
   addComment: (id: number, content: string) =>
-    post<Record<string, unknown>>(`/api/v1/works/${id}/comments`, { content })
+    post<Record<string, unknown>>(`/api/v1/works/${id}/comments`, { content }),
+  /** 发布作品（图片 + 文字 + 可选关联菜品） */
+  publish: (payload: {
+    title?: string
+    content: string
+    dishId?: number | null
+    orderId?: number | null
+    images: string[]
+  }) => post<Record<string, unknown>>('/api/v1/works', payload),
+  /** 上传作品图片（普通用户） */
+  uploadImage: (file: File) => uploadFile<UploadResult>('/api/v1/works/images', file, false)
 }

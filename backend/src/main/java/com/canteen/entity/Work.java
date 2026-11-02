@@ -18,8 +18,10 @@ public class Work {
     private Long id;
 
     private Long userId;
-    /** 关联菜品，点击作品可跳转点餐 */
+    /** 关联菜品，点击作品可跳转点餐；可为空（纯图文作品） */
     private Long dishId;
+    /** 关联历史订单，可为空；作品详情展示订单凭证 */
+    private Long orderId;
     private String title;
     private String content;
     private String imagesJson;

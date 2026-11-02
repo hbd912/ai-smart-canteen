@@ -1,12 +1,16 @@
 package com.canteen.controller;
 
 import com.canteen.common.ApiResponse;
+import com.canteen.dto.WorkPublishRequest;
 import com.canteen.security.SecurityUtils;
+import com.canteen.service.MediaService;
 import com.canteen.service.WorkService;
+import com.canteen.vo.UploadResultVo;
 import com.canteen.vo.WorkCommentVo;
 import com.canteen.vo.WorkVo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -26,6 +31,7 @@ import java.util.Map;
 public class WorkController {
 
     private final WorkService workService;
+    private final MediaService mediaService;
 
     @Operation(summary = "精选作品流（sort=hot 按点赞 / latest 按时间）")
     @GetMapping
@@ -69,5 +75,18 @@ public class WorkController {
         } catch (RuntimeException ex) {
             return null;
         }
+    }
+
+    @Operation(summary = "发布作品（图片 + 文字 + 可选关联历史订单/菜品）")
+    @PostMapping
+    public ApiResponse<WorkVo> publish(@Valid @RequestBody WorkPublishRequest request) {
+        Long userId = SecurityUtils.currentUserId();
+        return ApiResponse.ok("作品已发布", workService.publish(userId, request));
+    }
+
+    @Operation(summary = "上传作品图片（普通用户）")
+    @PostMapping("/images")
+    public ApiResponse<UploadResultVo> uploadImage(@RequestParam("file") MultipartFile file) {
+        return ApiResponse.ok("上传成功", mediaService.uploadDishImage(file));
     }
 }

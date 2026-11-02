@@ -15,6 +15,11 @@ public class WorkVo {
     private Long dishId;
     private String dishName;
     private BigDecimal dishPrice;
+    /** 关联的历史订单（发布时选择，可为空） */
+    private Long orderId;
+    private String orderNo;
+    private LocalDateTime orderCreatedAt;
+    private BigDecimal orderTotalAmount;
     private String title;
     private String content;
     private List<String> images;

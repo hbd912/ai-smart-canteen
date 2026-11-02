@@ -38,7 +38,7 @@ import { useFavoriteStore } from '@/stores/favorites'
 import { useToastStore } from '@/stores/toast'
 import { useAudioUnlock } from '@/composables/useAudioUnlock'
 import { usePingPongVideo } from '@/composables/usePingPongVideo'
-import { orderApi } from '@/api/modules'
+import { dishApi, orderApi } from '@/api/modules'
 import { PING_PONG_PAIR, SCENE_VIDEOS, type SceneVideoId } from '@/config/media'
 import { shouldShowBusinessUI, type ActivePanel } from '@/state/sceneMachine'
 import type { Category, Dish, Order } from '@/types/api'
@@ -481,14 +481,17 @@ async function toggleFavorite(dish: Dish) {
 }
 
 function onOrderDishFromWork(dishId: number) {
-  // 从精选作品 / AI 营养建议跳转到点餐页
+  // 从精选作品 / AI 营养建议跳转到点餐页，并直接打开该菜品详情
   if (!scene.menuScene && !scene.dining) {
     scene.dispatch({ type: 'OPEN_MENU' })
   } else if (scene.activePanel !== 'menu') {
     scene.dispatch({ type: 'GO_PANEL', panel: 'menu' })
   }
-  showNavHint('已切换到点餐，找到这道菜就可以直接加购啦')
-  void dishId
+  void dishApi
+    .detail(dishId)
+    .then((dish) => openDishDetail(dish))
+    .catch((e) => toast.error('菜品加载失败', e instanceof Error ? e.message : '请稍后重试'))
+  showNavHint('已为你打开这道菜，可直接加入购物车')
 }
 
 function openDishDetail(dish: Dish) {

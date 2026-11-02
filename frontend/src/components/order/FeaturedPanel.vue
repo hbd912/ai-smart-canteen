@@ -8,13 +8,17 @@
 import { computed, ref, watch } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import ReviewCenter from '@/components/order/ReviewCenter.vue'
-import { workApi } from '@/api/modules'
+import PublishWorkDialog from '@/components/order/PublishWorkDialog.vue'
+import { orderApi, workApi } from '@/api/modules'
+import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { formatDateTime, formatMoney } from '@/utils/format'
+import type { Order } from '@/types/api'
 
 const props = defineProps<{ active: boolean }>()
 const emit = defineEmits<{ (e: 'order-dish', dishId: number): void }>()
 
+const auth = useAuthStore()
 const toast = useToastStore()
 
 interface WorkComment {
@@ -30,9 +34,13 @@ interface Work {
   userId: number
   authorNickname: string
   authorInitial: string
-  dishId: number
-  dishName: string
-  dishPrice: number
+  dishId?: number | null
+  dishName?: string | null
+  dishPrice?: number | null
+  orderId?: number | null
+  orderNo?: string | null
+  orderCreatedAt?: string | null
+  orderTotalAmount?: number | null
   title: string
   content: string
   images: string[]
@@ -45,6 +53,8 @@ interface Work {
 
 /** 视图模式：featured = 精选作品流，review = 评价中心 */
 const viewMode = ref<'featured' | 'review'>('featured')
+/** 发布作品弹窗 */
+const publishOpen = ref(false)
 const loading = ref(false)
 const works = ref<Work[]>([])
 const sort = ref<'hot' | 'latest'>('hot')
@@ -52,6 +62,20 @@ const detailOpen = ref(false)
 const activeWork = ref<Work | null>(null)
 const commentText = ref('')
 const submitting = ref(false)
+
+/** 作品图片轮播 */
+const imageIndex = ref(0)
+const activeImages = computed(() => {
+  const images = activeWork.value?.images ?? []
+  return images.length > 0 ? images : ['/assets/images/dishes/dish-placeholder.webp']
+})
+const currentImage = computed(() => activeImages.value[imageIndex.value] ?? activeImages.value[0])
+const isAuthor = computed(() => activeWork.value?.userId === auth.user?.id)
+
+/** 关联订单详情 */
+const orderOpen = ref(false)
+const orderLoading = ref(false)
+const orderDetail = ref<Order | null>(null)
 
 const leftColumn = computed(() => works.value.filter((_, i) => i % 2 === 0))
 const rightColumn = computed(() => works.value.filter((_, i) => i % 2 === 1))
@@ -67,6 +91,12 @@ async function load() {
   }
 }
 
+async function onPublished() {
+  publishOpen.value = false
+  sort.value = 'latest'
+  await load()
+}
+
 function switchSort(next: 'hot' | 'latest') {
   if (sort.value === next) {
     return
@@ -78,6 +108,7 @@ function switchSort(next: 'hot' | 'latest') {
 async function openDetail(work: Work) {
   activeWork.value = work
   detailOpen.value = true
+  imageIndex.value = 0
   try {
     const full = (await workApi.detail(work.id)) as unknown as Work
     activeWork.value = full
@@ -90,6 +121,48 @@ function closeDetail() {
   detailOpen.value = false
   activeWork.value = null
   commentText.value = ''
+  imageIndex.value = 0
+  closeOrder()
+}
+
+function prevImage() {
+  const total = activeImages.value.length
+  imageIndex.value = (imageIndex.value - 1 + total) % total
+}
+
+function nextImage() {
+  const total = activeImages.value.length
+  imageIndex.value = (imageIndex.value + 1) % total
+}
+
+function selectImage(index: number) {
+  imageIndex.value = index
+}
+
+/** 打开关联订单：作者本人可看完整明细，其他访客只看订单凭证快照 */
+async function openOrder(work: Work) {
+  if (!work.orderId) {
+    return
+  }
+  orderOpen.value = true
+  orderDetail.value = null
+  if (work.userId !== auth.user?.id) {
+    return
+  }
+  orderLoading.value = true
+  try {
+    orderDetail.value = await orderApi.detail(work.orderId)
+  } catch (e) {
+    toast.error('订单加载失败', e instanceof Error ? e.message : '请稍后重试')
+  } finally {
+    orderLoading.value = false
+  }
+}
+
+function closeOrder() {
+  orderOpen.value = false
+  orderDetail.value = null
+  orderLoading.value = false
 }
 
 async function toggleLike(work: Work, event?: Event) {
@@ -134,6 +207,9 @@ async function submitComment() {
 
 /** 跳转点餐页并定位到该菜品 */
 function goDish(work: Work) {
+  if (!work.dishId) {
+    return
+  }
   closeDetail()
   emit('order-dish', work.dishId)
 }
@@ -162,6 +238,15 @@ defineExpose({ reload: load })
         <p class="section-subtitle">同学们分享的真实用餐记录，点开可以看评价和下单</p>
       </div>
       <div class="featured__head-right">
+        <button
+          v-if="viewMode === 'featured'"
+          class="btn btn--primary btn--sm featured__review-btn"
+          type="button"
+          @click="publishOpen = true"
+        >
+          <AppIcon name="plus" :size="13" />
+          发布作品
+        </button>
         <button
           class="btn btn--sm featured__review-btn"
           :class="viewMode === 'review' ? 'btn--primary' : 'btn--ghost'"
@@ -210,7 +295,10 @@ defineExpose({ reload: load })
     <div v-else-if="works.length === 0" class="panel-empty">
       <span class="panel-empty__art"><AppIcon name="star" :size="30" /></span>
       <p class="panel-empty__title">还没有精选作品</p>
-      <p class="panel-empty__desc">同学们发布用餐记录后会展示在这里</p>
+      <p class="panel-empty__desc">来做第一个分享用餐记录的人吧</p>
+      <button class="btn btn--primary btn--sm" type="button" @click="publishOpen = true">
+        发布作品
+      </button>
     </div>
 
     <div v-else class="featured__cols scroll-y">
@@ -226,7 +314,7 @@ defineExpose({ reload: load })
           <div class="work-card__media">
             <img :src="w.images[0] || '/assets/images/dishes/dish-placeholder.webp'" :alt="w.title" loading="lazy" />
             <div class="work-card__overlay">
-              <span class="work-card__dish">{{ w.dishName }}</span>
+              <span class="work-card__dish">{{ w.dishName || '图文分享' }}</span>
               <span class="work-card__likes">
                 <button
                   class="work-card__like-btn"
@@ -269,7 +357,7 @@ defineExpose({ reload: load })
           <div class="work-card__media">
             <img :src="w.images[0] || '/assets/images/dishes/dish-placeholder.webp'" :alt="w.title" loading="lazy" />
             <div class="work-card__overlay">
-              <span class="work-card__dish">{{ w.dishName }}</span>
+              <span class="work-card__dish">{{ w.dishName || '图文分享' }}</span>
               <span class="work-card__likes">
                 <button
                   class="work-card__like-btn"
@@ -309,7 +397,29 @@ defineExpose({ reload: load })
       <div v-if="detailOpen && activeWork" class="wd-mask" @click.self="closeDetail">
         <div class="wd">
           <div class="wd__media">
-            <img :src="activeWork.images[0] || '/assets/images/dishes/dish-placeholder.webp'" :alt="activeWork.title" />
+            <img :src="currentImage" :alt="activeWork.title" />
+            <template v-if="activeImages.length > 1">
+              <button class="wd__img-nav wd__img-nav--prev" type="button" aria-label="上一张" @click.stop="prevImage">
+                <AppIcon name="chevron-left" :size="18" />
+              </button>
+              <button class="wd__img-nav wd__img-nav--next" type="button" aria-label="下一张" @click.stop="nextImage">
+                <AppIcon name="chevron-right" :size="18" />
+              </button>
+              <span class="wd__img-count num">{{ imageIndex + 1 }} / {{ activeImages.length }}</span>
+              <div class="wd__thumbs">
+                <button
+                  v-for="(img, idx) in activeImages"
+                  :key="`${img}-${idx}`"
+                  class="wd__thumb"
+                  :class="{ 'wd__thumb--active': idx === imageIndex }"
+                  type="button"
+                  :aria-label="`查看第 ${idx + 1} 张图片`"
+                  @click.stop="selectImage(idx)"
+                >
+                  <img :src="img" :alt="`图片 ${idx + 1}`" />
+                </button>
+              </div>
+            </template>
           </div>
           <div class="wd__side scroll-y">
             <header class="wd__head">
@@ -326,12 +436,33 @@ defineExpose({ reload: load })
             <h3 class="wd__title">{{ activeWork.title }}</h3>
             <p class="wd__content">{{ activeWork.content }}</p>
 
+            <!-- 关联历史订单：展示订单凭证；作者本人可查看完整订单 -->
+            <button v-if="activeWork.orderId" class="wd__order" type="button" @click="openOrder(activeWork)">
+              <span class="wd__order-icon"><AppIcon name="clipboard-list" :size="16" /></span>
+              <span class="wd__order-info">
+                <span class="wd__order-label">来自历史订单</span>
+                <span class="wd__order-no num">{{ activeWork.orderNo || `#${activeWork.orderId}` }}</span>
+                <span class="wd__order-meta">
+                  {{ formatDateTime(activeWork.orderCreatedAt ?? '') }}
+                  <template v-if="activeWork.orderTotalAmount != null">
+                    · ¥{{ formatMoney(activeWork.orderTotalAmount) }}
+                  </template>
+                </span>
+              </span>
+              <span class="wd__order-go">
+                {{ isAuthor ? '查看订单' : '凭证' }}
+                <AppIcon name="chevron-right" :size="13" />
+              </span>
+            </button>
+
             <!-- 关联菜品：点击跳转点餐下单 -->
-            <button class="wd__dish" type="button" @click="goDish(activeWork)">
+            <button v-if="activeWork.dishId" class="wd__dish" type="button" @click="goDish(activeWork)">
               <div class="wd__dish-info">
                 <span class="wd__dish-label">提到的菜品</span>
-                <span class="wd__dish-name">{{ activeWork.dishName }}</span>
-                <span class="wd__dish-price num">¥{{ formatMoney(activeWork.dishPrice) }}</span>
+                <span class="wd__dish-name">{{ activeWork.dishName || '关联菜品' }}</span>
+                <span v-if="activeWork.dishPrice != null" class="wd__dish-price num">
+                  ¥{{ formatMoney(activeWork.dishPrice) }}
+                </span>
               </div>
               <span class="wd__dish-go">去点餐<AppIcon name="chevron-right" :size="13" /></span>
             </button>
@@ -386,6 +517,80 @@ defineExpose({ reload: load })
         </div>
       </div>
     </Transition>
+
+    <!-- 关联订单详情 -->
+    <Transition name="fade">
+      <div v-if="orderOpen && activeWork" class="od-mask" @click.self="closeOrder">
+        <div class="od">
+          <header class="od__head">
+            <div>
+              <h3 class="od__title">订单详情</h3>
+              <p class="od__sub num">{{ activeWork.orderNo || `#${activeWork.orderId}` }}</p>
+            </div>
+            <button class="od__close" type="button" aria-label="关闭" @click="closeOrder">
+              <AppIcon name="close" :size="16" />
+            </button>
+          </header>
+
+          <div class="od__body scroll-y">
+            <div v-if="orderLoading" class="od__loading">
+              <span class="skeleton" style="height: 42px; border-radius: 10px"></span>
+              <span class="skeleton" style="height: 120px; border-radius: 10px"></span>
+            </div>
+
+            <template v-else-if="orderDetail">
+              <div class="od__summary">
+                <span class="od__pill">{{ orderDetail.orderStatusLabel || orderDetail.orderStatus }}</span>
+                <span class="od__time">{{ formatDateTime(orderDetail.createdAt) }}</span>
+              </div>
+              <ul class="od__items">
+                <li v-for="item in orderDetail.items ?? []" :key="item.id" class="od__item">
+                  <img
+                    class="od__item-img"
+                    :src="item.imageUrl || '/assets/images/dishes/dish-placeholder.webp'"
+                    :alt="item.dishName"
+                  />
+                  <div class="od__item-body">
+                    <span class="od__item-name">{{ item.dishName }}</span>
+                    <span class="od__item-meta num">
+                      ¥{{ formatMoney(item.unitPrice) }} × {{ item.quantity }}
+                    </span>
+                  </div>
+                  <span class="od__item-sub num">¥{{ formatMoney(item.subtotal) }}</span>
+                </li>
+              </ul>
+              <div class="od__total">
+                <span>合计</span>
+                <strong class="num">¥{{ formatMoney(orderDetail.totalAmount) }}</strong>
+              </div>
+            </template>
+
+            <template v-else>
+              <div class="od__snapshot">
+                <p class="od__snapshot-title">作者的历史订单</p>
+                <p class="od__snapshot-line">
+                  <span>订单号</span><span class="num">{{ activeWork.orderNo || `#${activeWork.orderId}` }}</span>
+                </p>
+                <p class="od__snapshot-line">
+                  <span>下单时间</span><span>{{ formatDateTime(activeWork.orderCreatedAt ?? '') }}</span>
+                </p>
+                <p v-if="activeWork.orderTotalAmount != null" class="od__snapshot-line">
+                  <span>订单金额</span><span class="num">¥{{ formatMoney(activeWork.orderTotalAmount) }}</span>
+                </p>
+                <p class="od__snapshot-note">完整订单明细仅作者本人可查看。</p>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 发布作品弹窗 -->
+    <PublishWorkDialog
+      :open="publishOpen"
+      @close="publishOpen = false"
+      @published="onPublished"
+    />
   </div>
 </template>
 
@@ -594,14 +799,93 @@ defineExpose({ reload: load })
 }
 
 .wd__media {
+  position: relative;
   background: var(--cream-200);
   overflow: hidden;
 }
 
-.wd__media img {
+.wd__media > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.wd__img-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(44, 42, 38, 0.52);
+  color: #fff;
+  backdrop-filter: blur(4px);
+  transition: background-color var(--motion-fast) var(--ease-standard);
+}
+
+.wd__img-nav:hover {
+  background: rgba(44, 42, 38, 0.75);
+}
+
+.wd__img-nav--prev {
+  left: 10px;
+}
+
+.wd__img-nav--next {
+  right: 10px;
+}
+
+.wd__img-count {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(44, 42, 38, 0.58);
+  color: #fff;
+  font-size: 10px;
+}
+
+.wd__thumbs {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  gap: 6px;
+  padding: 5px;
+  border-radius: var(--radius-sm);
+  background: rgba(44, 42, 38, 0.38);
+  backdrop-filter: blur(4px);
+  overflow-x: auto;
+}
+
+.wd__thumb {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  border: 2px solid transparent;
+  opacity: 0.7;
+  transition: opacity var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+
+.wd__thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.wd__thumb:hover,
+.wd__thumb--active {
+  opacity: 1;
+  border-color: #fff;
 }
 
 .wd__side {
@@ -729,6 +1013,69 @@ defineExpose({ reload: load })
   flex: none;
 }
 
+/* 关联订单卡片 */
+.wd__order {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 250, 238, 0.9);
+  border: 1px dashed rgba(196, 154, 82, 0.5);
+  text-align: left;
+  transition: background-color var(--motion-fast) var(--ease-standard);
+}
+
+.wd__order:hover {
+  background: rgba(255, 246, 224, 1);
+}
+
+.wd__order-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 50%;
+  background: rgba(196, 154, 82, 0.16);
+  color: var(--amber-700);
+}
+
+.wd__order-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.wd__order-label {
+  font-size: 9.5px;
+  color: var(--ink-500);
+}
+
+.wd__order-no {
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--ink-900);
+}
+
+.wd__order-meta {
+  font-size: 9.5px;
+  color: var(--ink-400);
+}
+
+.wd__order-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--amber-700);
+  flex: none;
+}
+
 .wd__actions {
   display: flex;
   gap: 8px;
@@ -840,6 +1187,201 @@ defineExpose({ reload: load })
   flex: 1;
   height: 34px;
   font-size: var(--font-xs);
+}
+
+/* 关联订单详情弹窗 */
+.od-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 640;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  background: rgba(48, 44, 36, 0.5);
+  backdrop-filter: blur(6px);
+}
+
+.od {
+  display: flex;
+  flex-direction: column;
+  width: min(460px, 94vw);
+  max-height: 82vh;
+  border-radius: var(--radius-2xl);
+  background: var(--cream-50);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+}
+
+.od__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid rgba(124, 143, 90, 0.12);
+}
+
+.od__title {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  color: var(--ink-900);
+}
+
+.od__sub {
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--ink-400);
+}
+
+.od__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--ink-500);
+  background: rgba(255, 255, 255, 0.8);
+  flex: none;
+}
+
+.od__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.od__loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.od__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.od__pill {
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--sage-100);
+  color: var(--sage-700);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.od__time {
+  font-size: 10px;
+  color: var(--ink-400);
+}
+
+.od__items {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.od__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(124, 143, 90, 0.12);
+}
+
+.od__item-img {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: var(--radius-xs);
+  object-fit: cover;
+}
+
+.od__item-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.od__item-name {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  color: var(--ink-900);
+}
+
+.od__item-meta {
+  font-size: 10px;
+  color: var(--ink-500);
+}
+
+.od__item-sub {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  color: var(--amber-600);
+  flex: none;
+}
+
+.od__total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--space-3);
+  border-top: 1px dashed rgba(124, 143, 90, 0.26);
+  font-size: var(--font-sm);
+  color: var(--ink-600);
+}
+
+.od__total strong {
+  font-size: var(--font-lg);
+  color: var(--amber-600);
+}
+
+.od__snapshot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: rgba(255, 250, 238, 0.9);
+  border: 1px dashed rgba(196, 154, 82, 0.4);
+}
+
+.od__snapshot-title {
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--ink-900);
+}
+
+.od__snapshot-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: var(--font-xs);
+  color: var(--ink-500);
+}
+
+.od__snapshot-line span:last-child {
+  color: var(--ink-800);
+  font-weight: 600;
+}
+
+.od__snapshot-note {
+  font-size: 10px;
+  color: var(--ink-400);
+  line-height: 1.6;
 }
 
 @media (max-width: 900px) {
