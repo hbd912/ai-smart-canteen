@@ -9,7 +9,11 @@ import com.canteen.dto.DishReviewRequest;
 import com.canteen.entity.Dish;
 import com.canteen.entity.DishReview;
 import com.canteen.entity.SysUser;
+import com.canteen.entity.Order;
+import com.canteen.entity.OrderItem;
 import com.canteen.mapper.DishMapper;
+import com.canteen.mapper.OrderItemMapper;
+import com.canteen.mapper.OrderMapper;
 import com.canteen.mapper.DishReviewMapper;
 import com.canteen.mapper.SysUserMapper;
 import com.canteen.vo.DishRatingSummaryVo;
@@ -44,6 +48,8 @@ public class DishReviewService {
     private final DishReviewMapper reviewMapper;
     private final DishMapper dishMapper;
     private final SysUserMapper userMapper;
+    private final OrderMapper orderMapper;
+    private final OrderItemMapper orderItemMapper;
 
     /** 菜品评分汇总（含最近评价） */
     public DishRatingSummaryVo summary(Long dishId, Long currentUserId) {
@@ -113,6 +119,23 @@ public class DishReviewService {
             throw BizException.of(ErrorCode.NOT_FOUND, "菜品不存在");
         }
 
+        // 业务规则：只有真正下过单（该订单包含此菜品）才能评价，避免刷评价
+        Order order = null;
+        if (request.getOrderId() != null) {
+            order = orderMapper.selectById(request.getOrderId());
+            if (order == null || !Objects.equals(order.getUserId(), userId)) {
+                throw BizException.of(ErrorCode.FORBIDDEN, "订单不存在或不属于当前用户");
+            }
+            boolean bought = orderItemMapper.selectCount(new LambdaQueryWrapper<OrderItem>()
+                    .eq(OrderItem::getOrderId, order.getId())
+                    .eq(OrderItem::getDishId, request.getDishId())) > 0;
+            if (!bought) {
+                throw BizException.of(ErrorCode.BAD_REQUEST, "该订单中没有这道菜，无法评价");
+            }
+        } else if (!hasPurchased(userId, request.getDishId())) {
+            throw BizException.of(ErrorCode.BAD_REQUEST, "只有点过这道菜才能评价");
+        }
+
         DishReview existing = reviewMapper.selectOne(new LambdaQueryWrapper<DishReview>()
                 .eq(DishReview::getUserId, userId)
                 .eq(DishReview::getDishId, request.getDishId()));
@@ -156,6 +179,77 @@ public class DishReviewService {
         }
         reviewMapper.deleteById(reviewId);
         reviewMapper.refreshDishRating(review.getDishId());
+    }
+
+
+    // ---------------------------------------------------------------
+    // 购买校验 / 待评价 / 已评价
+    // ---------------------------------------------------------------
+
+    /** 该用户是否点过某道菜（订单未取消即算） */
+    public boolean hasPurchased(Long userId, Long dishId) {
+        List<Order> orders = orderMapper.selectList(new LambdaQueryWrapper<Order>()
+                .eq(Order::getUserId, userId)
+                .ne(Order::getOrderStatus, "CANCELLED"));
+        if (orders.isEmpty()) {
+            return false;
+        }
+        List<Long> orderIds = orders.stream().map(Order::getId).toList();
+        return orderItemMapper.selectCount(new LambdaQueryWrapper<OrderItem>()
+                .in(OrderItem::getOrderId, orderIds)
+                .eq(OrderItem::getDishId, dishId)) > 0;
+    }
+
+    /**
+     * 评价中心：按订单明细聚合，区分「待评价 / 已评价」。
+     *
+     * 返回每一条购买记录（订单 + 菜品），供前端列表展示与跳转评价。
+     */
+    public List<java.util.Map<String, Object>> reviewCenter(Long userId) {
+        List<Order> orders = orderMapper.selectList(new LambdaQueryWrapper<Order>()
+                .eq(Order::getUserId, userId)
+                .ne(Order::getOrderStatus, "CANCELLED")
+                .orderByDesc(Order::getCreatedAt));
+        if (orders.isEmpty()) {
+            return List.of();
+        }
+        List<Long> orderIds = orders.stream().map(Order::getId).toList();
+        List<OrderItem> items = orderItemMapper.selectList(new LambdaQueryWrapper<OrderItem>()
+                .in(OrderItem::getOrderId, orderIds));
+        Map<Long, Order> orderMap = orders.stream()
+                .collect(Collectors.toMap(Order::getId, o -> o, (a, b) -> a));
+
+        // 我已评价的菜品 -> 评价记录
+        List<DishReview> mine = reviewMapper.selectList(new LambdaQueryWrapper<DishReview>()
+                .eq(DishReview::getUserId, userId)
+                .eq(DishReview::getStatus, STATUS_APPROVED));
+        Map<Long, DishReview> reviewedByDish = mine.stream()
+                .collect(Collectors.toMap(DishReview::getDishId, r -> r, (a, b) -> a));
+
+        List<java.util.Map<String, Object>> out = new java.util.ArrayList<>();
+        for (OrderItem it : items) {
+            Order o = orderMap.get(it.getOrderId());
+            if (o == null || it.getDishId() == null) {
+                continue;
+            }
+            DishReview rv = reviewedByDish.get(it.getDishId());
+            Map<String, Object> row = new java.util.LinkedHashMap<>();
+            row.put("orderId", o.getId());
+            row.put("orderNo", o.getOrderNo());
+            row.put("orderStatus", o.getOrderStatus());
+            row.put("orderCreatedAt", o.getCreatedAt());
+            row.put("dishId", it.getDishId());
+            row.put("dishName", it.getDishNameSnapshot());
+            row.put("imageUrl", it.getImageUrlSnapshot());
+            row.put("quantity", it.getQuantity());
+            row.put("unitPrice", it.getUnitPriceSnapshot());
+            row.put("reviewed", rv != null);
+            row.put("myRating", rv == null ? null : rv.getRating());
+            row.put("myContent", rv == null ? null : rv.getContent());
+            row.put("reviewedAt", rv == null ? null : rv.getCreatedAt());
+            out.add(row);
+        }
+        return out;
     }
 
     // ---------------------------------------------------------------

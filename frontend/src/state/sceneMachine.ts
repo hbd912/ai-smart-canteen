@@ -217,17 +217,22 @@ export function sceneReducer(state: SceneContext, action: SceneAction): SceneCon
       }
       // 送达停留：点任意导航都触发 006 视角转换
       if (state.sceneState === 'DELIVERY_HOLD') {
+        // 同理：立即显示目标面板，006 视角转换在后台播放
         return {
           ...state,
           sceneState: 'EATING_TRANSITION',
+          activePanel: action.panel,
           pendingEatingPanel: action.panel,
           checkoutOpen: false
         }
       }
       if (state.sceneState === 'MENU_OPEN' || state.sceneState === 'CHECKOUT_OPEN') {
+        // 立即切到目标面板：UI 马上出现，004-1-reverse 只在后台播放视角回退，
+        // 不必等转场结束（否则用户点导航后要干等 5 秒才看到页面）
         return {
           ...state,
           sceneState: 'MENU_EXITING',
+          activePanel: action.panel,
           pendingPanel: action.panel,
           checkoutOpen: false
         }
@@ -362,6 +367,11 @@ export function shouldShowBusinessUI(state: SceneState): boolean {
  * 注意：DELIVERY（005 播放中）**不显示**点餐面板 —— 下单后 UI 暂时消失，
  * 让 005 送餐动画完整呈现；005 播完进入 DELIVERY_HOLD 定格后，面板才淡入出现。
  */
+/** 转场期间是否需要在后台播放视频（UI 不受影响） */
+export function isBackgroundTransition(state: SceneState): boolean {
+  return state === 'MENU_EXITING' || state === 'EATING_TRANSITION'
+}
+
 export function isMenuPanelVisible(state: SceneState): boolean {
   return (
     state === 'MENU_OPEN' ||

@@ -176,9 +176,11 @@ const nutritionRows = computed(() => {
 .detail {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  width: min(880px, 94vw);
-  max-height: 86vh;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  /* 宽高都设上限：内容再多也不撑破视口 */
+  width: min(960px, 94vw);
+  height: min(88vh, 900px);
+  max-height: 90vh;
   border-radius: var(--radius-2xl);
   overflow: hidden;
   background: var(--cream-50);
@@ -208,7 +210,10 @@ const nutritionRows = computed(() => {
 
 .detail__media {
   position: relative;
+  height: 100%;
+  min-height: 0;
   background: var(--cream-200);
+  overflow: hidden;
 }
 
 .detail__media img {
@@ -242,7 +247,12 @@ const nutritionRows = computed(() => {
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-6);
+  /* 关键：独立滚动，内容超出时只滚右侧，不撑破弹窗 */
   overflow-y: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+  height: 100%;
+  padding-bottom: var(--space-8);
 }
 
 .detail__title-row {
@@ -433,6 +443,17 @@ const nutritionRows = computed(() => {
 
   .nutrition-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .detail {
+    grid-template-columns: 1fr;
+    height: min(92vh, 860px);
+  }
+
+  .detail__media {
+    max-height: 220px;
   }
 }
 </style>

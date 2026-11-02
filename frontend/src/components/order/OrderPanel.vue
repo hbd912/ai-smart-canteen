@@ -4,10 +4,14 @@
  */
 import { computed, onMounted, ref } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
+import ReviewCenter from '@/components/order/ReviewCenter.vue'
 import { DISH_PLACEHOLDER } from '@/config/media'
 import { orderApi } from '@/api/modules'
 import type { Order } from '@/types/api'
 import { formatDateTime, formatMoney, orderStatusTone } from '@/utils/format'
+
+/** 视图模式：orders = 订单列表，review = 评价中心 */
+const viewMode = ref<'orders' | 'review'>('orders')
 
 const emit = defineEmits<{
   (e: 'refresh-scene'): void
@@ -73,25 +77,44 @@ defineExpose({ reload: () => load(true) })
           <span class="section-title__icon"><AppIcon name="calendar" :size="15" /></span>
           我的订单
         </h2>
-        <p class="section-subtitle">课堂演示订单：模拟支付，不产生真实扣款</p>
+        <p class="section-subtitle">
+          {{ viewMode === 'orders' ? '课堂演示订单：模拟支付，不产生真实扣款' : '只展示你下过单的菜品，未购买不可评价' }}
+        </p>
       </div>
-      <div class="seg-control">
+      <div class="order-head__right">
         <button
-          v-for="item in [
-            { key: 'ALL', label: '全部' },
-            { key: 'active', label: '进行中' },
-            { key: 'completed', label: '已完成' }
-          ]"
-          :key="item.key"
-          class="seg-control__btn"
-          :class="{ 'seg-control__btn--active': filter === item.key }"
+          class="btn btn--sm order-mode-btn"
+          :class="viewMode === 'review' ? 'btn--primary' : 'btn--ghost'"
           type="button"
-          @click="filter = item.key as typeof filter"
+          @click="viewMode = viewMode === 'orders' ? 'review' : 'orders'"
         >
-          {{ item.label }}
+          <AppIcon name="star" :size="13" />
+          {{ viewMode === 'review' ? '返回订单' : '评价中心' }}
         </button>
+        <div v-if="viewMode === 'orders'" class="seg-control">
+          <button
+            v-for="item in [
+              { key: 'ALL', label: '全部' },
+              { key: 'active', label: '进行中' },
+              { key: 'completed', label: '已完成' }
+            ]"
+            :key="item.key"
+            class="seg-control__btn"
+            :class="{ 'seg-control__btn--active': filter === item.key }"
+            type="button"
+            @click="filter = item.key as typeof filter"
+          >
+            {{ item.label }}
+          </button>
+        </div>
       </div>
     </header>
+
+    <!-- 评价中心 -->
+    <ReviewCenter v-if="viewMode === 'review'" :active="viewMode === 'review'" />
+
+    <!-- 订单列表 -->
+    <template v-else>
 
     <div v-if="loading && orders.length === 0" class="order-list">
       <div v-for="i in 3" :key="i" class="skeleton" style="height: 96px; border-radius: 16px"></div>
@@ -177,6 +200,7 @@ defineExpose({ reload: () => load(true) })
         {{ loading ? '加载中…' : '加载更多订单' }}
       </button>
     </div>
+    </template>
   </section>
 </template>
 
@@ -447,5 +471,19 @@ defineExpose({ reload: () => load(true) })
   color: var(--ink-400);
   max-width: 260px;
   line-height: 1.6;
+}
+
+.order-head__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.order-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
 }
 </style>

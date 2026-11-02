@@ -167,5 +167,17 @@ export const reviewApi = {
     orderId?: number | null
   }) => post<DishReview>('/api/v1/reviews', payload),
   /** 删除自己的评价 */
-  remove: (reviewId: number) => del<void>(`/api/v1/reviews/${reviewId}`)
+  remove: (reviewId: number) => del<void>(`/api/v1/reviews/${reviewId}`),
+  /** 评价中心：按订单明细列出待评价/已评价 */
+  center: () => get<Record<string, unknown>[]>('/api/v1/reviews/center'),
+  /** 检查某道菜是否可评价 */
+  canReview: (dishId: number) => get<{ canReview: boolean }>('/api/v1/reviews/can-review', { dishId }),
+  /** 带订单的评价提交（评价中心使用） */
+  dialogSubmit: (payload: {
+    dishId: number
+    orderId: number
+    rating: number
+    content?: string
+    anonymous?: boolean
+  }) => post<DishReview>('/api/v1/reviews', payload)
 }

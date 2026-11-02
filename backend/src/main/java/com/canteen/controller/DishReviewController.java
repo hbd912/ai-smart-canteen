@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @Tag(name = "09. 菜品评价", description = "评分汇总、评价列表、提交评价")
 @RestController
@@ -61,6 +62,20 @@ public class DishReviewController {
     public ApiResponse<Void> remove(@PathVariable Long reviewId) {
         reviewService.remove(SecurityUtils.currentUserId(), reviewId);
         return ApiResponse.ok("评价已删除", null);
+    }
+
+
+    @Operation(summary = "评价中心：按订单明细列出待评价/已评价")
+    @GetMapping("/center")
+    public ApiResponse<List<Map<String, Object>>> center() {
+        return ApiResponse.ok(reviewService.reviewCenter(SecurityUtils.currentUserId()));
+    }
+
+    @Operation(summary = "检查某道菜是否可评价（是否购买过）")
+    @GetMapping("/can-review")
+    public ApiResponse<Map<String, Object>> canReview(@RequestParam Long dishId) {
+        Long userId = SecurityUtils.currentUserId();
+        return ApiResponse.ok(Map.of("canReview", reviewService.hasPurchased(userId, dishId)));
     }
 
     private Long optionalUserId() {

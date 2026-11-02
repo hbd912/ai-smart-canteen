@@ -127,7 +127,7 @@ function onFavorite(event: Event) {
         <span class="dish-card__kcal num">{{ formatCalories(dish.calories) }} kcal</span>
       </p>
       <div class="dish-card__tags">
-        <span v-for="tag in dish.tags.slice(0, 2)" :key="tag" class="tag">{{ tag }}</span>
+        <span v-for="tag in dish.tags.slice(0, 3)" :key="tag" class="tag">{{ tag }}</span>
       </div>
     </div>
 
