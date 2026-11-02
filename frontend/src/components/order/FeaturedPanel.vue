@@ -71,6 +71,8 @@ const activeImages = computed(() => {
 })
 const currentImage = computed(() => activeImages.value[imageIndex.value] ?? activeImages.value[0])
 const isAuthor = computed(() => activeWork.value?.userId === auth.user?.id)
+/** 仅登录用户可发布作品；未登录时隐藏发布入口，避免打开弹窗后刷到 401 */
+const isLoggedIn = computed(() => auth.isLoggedIn)
 
 /** 关联订单详情 */
 const orderOpen = ref(false)
@@ -239,7 +241,7 @@ defineExpose({ reload: load })
       </div>
       <div class="featured__head-right">
         <button
-          v-if="viewMode === 'featured'"
+          v-if="viewMode === 'featured' && isLoggedIn"
           class="btn btn--primary btn--sm featured__review-btn"
           type="button"
           @click="publishOpen = true"
@@ -296,9 +298,10 @@ defineExpose({ reload: load })
       <span class="panel-empty__art"><AppIcon name="star" :size="30" /></span>
       <p class="panel-empty__title">还没有精选作品</p>
       <p class="panel-empty__desc">来做第一个分享用餐记录的人吧</p>
-      <button class="btn btn--primary btn--sm" type="button" @click="publishOpen = true">
+      <button v-if="isLoggedIn" class="btn btn--primary btn--sm" type="button" @click="publishOpen = true">
         发布作品
       </button>
+      <p v-else class="panel-empty__desc">登录后即可发布自己的用餐记录</p>
     </div>
 
     <div v-else class="featured__cols scroll-y">

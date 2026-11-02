@@ -5,6 +5,7 @@
 import { computed, ref, watch } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { dishApi, reviewApi, workApi } from '@/api/modules'
+import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { formatDateTime, formatMoney } from '@/utils/format'
 
@@ -14,6 +15,7 @@ const emit = defineEmits<{
   (e: 'published'): void
 }>()
 
+const auth = useAuthStore()
 const toast = useToastStore()
 
 const title = ref('')
@@ -41,10 +43,20 @@ interface OrderPickItem {
 
 const recentDishes = ref<OrderPickItem[]>([])
 
-const selectedDish = computed(
-  () =>
-    recentDishes.value.find((d) => d.dishId === dishId.value && d.orderId === orderId.value) ?? null
-)
+const selectedDish = computed(() => {
+  const list = recentDishes.value
+  if (!dishId.value) {
+    return null
+  }
+  if (orderId.value) {
+    const hit = list.find((d) => d.dishId === dishId.value && d.orderId === orderId.value)
+    if (hit) {
+      return hit
+    }
+  }
+  // 未关联历史订单时只按菜品匹配（回退列表里的条目 orderId 为 0）
+  return list.find((d) => d.dishId === dishId.value) ?? null
+})
 
 watch(
   () => props.open,
@@ -173,6 +185,11 @@ function clearDish() {
 
 async function submit() {
   error.value = ''
+  if (!auth.isLoggedIn) {
+    toast.warning('请先登录', '登录后即可发布你的用餐记录')
+    emit('close')
+    return
+  }
   if (!content.value.trim()) {
     error.value = '请填写文字描述'
     return
