@@ -14,7 +14,7 @@ import { formatMoney } from '@/utils/format'
 const props = defineProps<{
   quantities: Record<number, number>
   favoriteIds: number[]
-  searchKeyword: string
+  searchKeyword?: string
   initialCategoryId?: number | null
   cartCount: number
   cartTotal: number
@@ -49,7 +49,7 @@ const error = ref<string | null>(null)
 const activeCategory = ref<number | null>(props.initialCategoryId ?? null)
 const sortKey = ref<SortKey>('sales_desc')
 const calorieFilter = ref<CalorieFilter>('all')
-const keyword = ref(props.searchKeyword)
+const keyword = ref(props.searchKeyword ?? '')
 const sortOpen = ref(false)
 const calorieOpen = ref(false)
 
@@ -144,7 +144,7 @@ watch([activeCategory, sortKey, calorieFilter], () => loadDishes())
 watch(
   () => props.searchKeyword,
   (next) => {
-    keyword.value = next
+    keyword.value = next ?? ''
   }
 )
 watch(keyword, () => loadDishes())

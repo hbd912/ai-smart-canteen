@@ -1,9 +1,10 @@
 <script setup lang="ts">
 /**
- * 顶部品牌栏：Logo、提示语、搜索、天气/日期（演示数据）、通知、头像下拉。
+ * 顶部品牌栏：Logo、提示语、天气/日期（演示数据）、通知、头像下拉。
+ * 说明：全局搜索已移除，找菜请用首页的 AI 助手（「今天吃什么？让我帮你搭配」）。
  * 通知与头像均为真实交互组件（通知为 Mock 数据，头像菜单含退出登录）。
  */
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import UserMenu from '@/components/layout/UserMenu.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -11,17 +12,13 @@ import { greeting, todayLabel } from '@/utils/format'
 
 const props = withDefaults(
   defineProps<{
-    searchable?: boolean
     compact?: boolean
-    modelValue?: string
     unreadCount?: number
   }>(),
-  { searchable: true, compact: false, modelValue: '', unreadCount: 0 }
+  { compact: false, unreadCount: 0 }
 )
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: string): void
-  (e: 'search', value: string): void
   (e: 'open-notifications'): void
   (e: 'profile'): void
   (e: 'change-password'): void
@@ -29,22 +26,12 @@ const emit = defineEmits<{
 }>()
 
 const auth = useAuthStore()
-const localSearch = ref(props.modelValue)
 
 const weather = { temp: 24, text: '晴', note: '演示数据' }
 
 const dateText = computed(() => todayLabel())
 const greetingText = computed(() => `${greeting()}，${auth.displayName}`)
 
-function onInput(event: Event) {
-  const value = (event.target as HTMLInputElement).value
-  localSearch.value = value
-  emit('update:modelValue', value)
-}
-
-function submit() {
-  emit('search', localSearch.value.trim())
-}
 </script>
 
 <template>
@@ -59,30 +46,6 @@ function submit() {
           <span class="brand__tagline">今天想吃点什么？</span>
         </span>
       </RouterLink>
-    </div>
-
-    <div v-if="searchable" class="topbar__search">
-      <label class="search" for="global-search">
-        <AppIcon name="search" :size="18" class="search__icon" />
-        <input
-          id="global-search"
-          class="search__input"
-          type="search"
-          :value="localSearch"
-          placeholder="搜索菜品、口味或营养需求…"
-          @input="onInput"
-          @keyup.enter="submit"
-        />
-        <button
-          v-if="localSearch"
-          class="search__clear"
-          type="button"
-          aria-label="清除搜索"
-          @click="localSearch = ''; emit('update:modelValue', ''); emit('search', '')"
-        >
-          <AppIcon name="close" :size="14" />
-        </button>
-      </label>
     </div>
 
     <div class="topbar__right">
@@ -186,69 +149,6 @@ function submit() {
   color: var(--ink-500);
 }
 
-.topbar__search {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  min-width: 0;
-}
-
-.search {
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: min(460px, 100%);
-  height: 42px;
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(124, 143, 90, 0.18);
-  transition: border-color var(--motion-fast) var(--ease-standard),
-    box-shadow var(--motion-fast) var(--ease-standard);
-}
-
-.search:focus-within {
-  border-color: var(--sage-400);
-  box-shadow: var(--shadow-glow);
-}
-
-.search__icon {
-  color: var(--sage-500);
-  flex: none;
-}
-
-.search__input {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  padding: 0 var(--space-2);
-  border: none;
-  background: transparent;
-  outline: none;
-  font-size: var(--font-base);
-  color: var(--ink-800);
-}
-
-.search__input::placeholder {
-  color: var(--ink-400);
-}
-
-.search__clear {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  color: var(--ink-400);
-  transition: background-color var(--motion-fast) var(--ease-standard);
-}
-
-.search__clear:hover {
-  background: var(--sage-100);
-  color: var(--sage-700);
-}
-
 .topbar__right {
   display: flex;
   align-items: center;
@@ -350,10 +250,6 @@ function submit() {
 }
 
 @media (max-width: 767px) {
-  .topbar__search {
-    display: none;
-  }
-
   .brand__name {
     font-size: var(--font-base);
   }

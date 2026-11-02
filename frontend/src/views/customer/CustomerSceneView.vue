@@ -64,7 +64,6 @@ const pingPong = usePingPongVideo({
 // ---------------------------------------------------------------
 const currentOrder = ref<Order | null>(null)
 const detailDish = ref<Dish | null>(null)
-const searchKeyword = ref('')
 const menuCategoryId = ref<number | null>(null)
 const submitting = ref(false)
 const checkoutError = ref<string | null>(null)
@@ -413,13 +412,6 @@ function openCategory(category: Category | null) {
   }
 }
 
-function onSearch(keyword: string) {
-  searchKeyword.value = keyword
-  if (keyword && !scene.menuScene) {
-    scene.dispatch({ type: 'OPEN_MENU' })
-  }
-}
-
 // ---------------------------------------------------------------
 // 购物车与收藏
 // ---------------------------------------------------------------
@@ -679,10 +671,7 @@ function skipVideo() {
     <!-- 业务 UI -->
     <template v-if="showBusinessUI">
       <TopBar
-        v-model="searchKeyword"
-        :searchable="scene.activePanel === 'menu'"
         :unread-count="unreadCount"
-        @search="onSearch"
         @open-notifications="openNotifications"
         @profile="onProfile"
         @change-password="onChangePassword"
@@ -714,8 +703,7 @@ function skipVideo() {
                 ref="menuRef"
                 :quantities="quantities"
                 :favorite-ids="favoriteIds"
-                :search-keyword="searchKeyword"
-                :initial-category-id="menuCategoryId"
+                  :initial-category-id="menuCategoryId"
                 :cart-count="cart.totalQuantity"
                 :cart-total="cart.totalAmount"
                 :cart-calories="cart.totalCalories"
