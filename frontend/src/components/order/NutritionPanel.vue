@@ -7,7 +7,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import ProgressRing from '@/components/common/ProgressRing.vue'
 import { nutritionApi } from '@/api/modules'
-import type { NutritionSummary } from '@/types/api'
+import type { NutritionSummary, NutritionTrendPoint } from '@/types/api'
 
 const loading = ref(true)
 const error = ref<string | null>(null)
@@ -30,6 +30,62 @@ const metrics = computed(() => {
 })
 
 const trend = computed(() => summary.value?.trend ?? [])
+
+/** 三大营养素提供的热量占比（蛋白 4kcal/g、碳水 4kcal/g、脂肪 9kcal/g） */
+const macroShare = computed(() => {
+  const s = summary.value
+  if (!s) {
+    return []
+  }
+  const p = Number(s.totalProtein ?? 0) * 4
+  const c = Number(s.totalCarbohydrate ?? 0) * 4
+  const f = Number(s.totalFat ?? 0) * 9
+  const sum = p + c + f
+  if (sum <= 0) {
+    return []
+  }
+  return [
+    { key: 'protein', label: '蛋白质', kilo: Math.round(p), pct: Math.round((p / sum) * 100), color: 'var(--sage-500)' },
+    { key: 'carb', label: '碳水', kilo: Math.round(c), pct: Math.round((c / sum) * 100), color: 'var(--amber-500)' },
+    { key: 'fat', label: '脂肪', kilo: Math.round(f), pct: Math.round((f / sum) * 100), color: 'var(--apricot-300, #f0b45c)' }
+  ]
+})
+
+/** 环形图 conic-gradient 色段 */
+const macroGradient = computed(() => {
+  const m = macroShare.value
+  if (m.length === 0) {
+    return 'conic-gradient(rgba(124,143,90,0.15) 0% 100%)'
+  }
+  let acc = 0
+  const parts = m.map((x) => {
+    const from = acc
+    acc += x.pct
+    return x.color + ' ' + from + '% ' + acc + '%'
+  })
+  return 'conic-gradient(' + parts.join(', ') + ')'
+})
+
+/** 趋势图每天的热量上限（用于计算堆叠柱高） */
+const trendMax = computed(() => Math.max(...trend.value.map((p) => Number(p.calories)), 1))
+
+/** 每天某类营养素折算成热量的柱高（百分比），用于三色堆叠 */
+function stackHeight(point: NutritionTrendPoint, kind: 'protein' | 'carb' | 'fat') {
+  const total = trendMax.value || 1
+  const factor = kind === 'protein' ? 4 : kind === 'carb' ? 4 : 9
+  const raw = kind === 'protein'
+    ? Number(point.protein)
+    : kind === 'carb'
+      ? Number(point.carbohydrate)
+      : Number(point.fat)
+  const val = (raw || 0) * factor
+  return Math.max((val / total) * 100, 0).toFixed(1) + '%'
+}
+
+/** 每条趋势柱子的总热量 */
+function totalOf(point: NutritionTrendPoint) {
+  return Math.round(Number(point.calories) || 0)
+}
 const maxCalories = computed(() => Math.max(...trend.value.map((p) => Number(p.calories)), 1))
 
 function barHeight(value: number) {
@@ -125,20 +181,66 @@ defineExpose({ reload: load })
         </div>
       </div>
 
+      <!-- 三大营养素构成（参考项目饼图思路，用 conic-gradient 实现，无需图表库） -->
+      <section v-if="macroShare.length > 0" class="macro-card">
+        <header class="macro-card__head">
+          <h3 class="macro-card__title">
+            <AppIcon name="bar-chart" :size="14" />三大营养素构成
+          </h3>
+          <span class="macro-card__hint">按供能折算（估算值）</span>
+        </header>
+        <div class="macro-card__body">
+          <div class="macro-donut" :style="{ background: macroGradient }">
+            <div class="macro-donut__hole">
+              <span class="macro-donut__value num">{{ Math.round(summary.totalCalories) }}</span>
+              <span class="macro-donut__unit">kcal</span>
+            </div>
+          </div>
+          <ul class="macro-legend">
+            <li v-for="m in macroShare" :key="m.key" class="macro-legend__item">
+              <span class="macro-legend__dot" :style="{ background: m.color }"></span>
+              <span class="macro-legend__label">{{ m.label }}</span>
+              <span class="macro-legend__pct num">{{ m.pct }}%</span>
+              <span class="macro-legend__kilo num">{{ m.kilo }} kcal</span>
+            </li>
+          </ul>
+        </div>
+      </section>
+
       <section class="trend-card">
         <header class="trend-card__head">
           <h3 class="trend-card__title">热量摄入趋势</h3>
           <span class="trend-card__hint">按日聚合（估算值）</span>
         </header>
         <div v-if="trend.length === 0" class="trend-empty">暂无数据</div>
-        <div v-else class="trend-chart">
-          <div v-for="point in trend" :key="point.date" class="trend-bar">
-            <div class="trend-bar__track">
-              <span class="trend-bar__fill" :style="{ height: barHeight(point.calories) }"></span>
+        <template v-else>
+          <div class="trend-chart">
+            <div v-for="point in trend" :key="point.date" class="trend-bar">
+              <span v-if="totalOf(point) > 0" class="trend-bar__value num">{{ totalOf(point) }}</span>
+              <div class="trend-bar__track">
+                <!-- 三色堆叠：蛋白 / 碳水 / 脂肪 折算热量 -->
+                <span
+                  class="trend-bar__seg trend-bar__seg--fat"
+                  :style="{ height: stackHeight(point, 'fat') }"
+                ></span>
+                <span
+                  class="trend-bar__seg trend-bar__seg--carb"
+                  :style="{ height: stackHeight(point, 'carb') }"
+                ></span>
+                <span
+                  class="trend-bar__seg trend-bar__seg--protein"
+                  :style="{ height: stackHeight(point, 'protein') }"
+                ></span>
+              </div>
+              <span class="trend-bar__label">{{ point.date }}</span>
             </div>
-            <span class="trend-bar__label">{{ point.date }}</span>
           </div>
-        </div>
+          <div class="trend-legend">
+            <span class="trend-legend__item"><i class="dot dot--protein"></i>蛋白质</span>
+            <span class="trend-legend__item"><i class="dot dot--carb"></i>碳水</span>
+            <span class="trend-legend__item"><i class="dot dot--fat"></i>脂肪</span>
+          </div>
+        </template>
       </section>
 
       <section class="advice-card">
@@ -458,5 +560,183 @@ defineExpose({ reload: load })
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* ---------- 三大营养素环形图 ---------- */
+.macro-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(124, 143, 90, 0.12);
+}
+
+.macro-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.macro-card__title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--ink-800);
+}
+
+.macro-card__hint {
+  font-size: 10px;
+  color: var(--ink-400);
+}
+
+.macro-card__body {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+
+.macro-donut {
+  position: relative;
+  width: 118px;
+  height: 118px;
+  flex: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.macro-donut__hole {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 72%;
+  height: 72%;
+  border-radius: 50%;
+  background: var(--cream-50, #fffdf8);
+  box-shadow: inset 0 0 0 1px rgba(124, 143, 90, 0.1);
+}
+
+.macro-donut__value {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink-900);
+}
+
+.macro-donut__unit {
+  font-size: 9.5px;
+  color: var(--ink-400);
+  margin-top: 2px;
+}
+
+.macro-legend {
+  flex: 1;
+  min-width: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.macro-legend__item {
+  display: grid;
+  grid-template-columns: 10px 52px 1fr auto;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--font-xs);
+  color: var(--ink-600);
+}
+
+.macro-legend__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+}
+
+.macro-legend__label {
+  font-weight: 600;
+  color: var(--ink-700);
+}
+
+.macro-legend__pct {
+  font-weight: 700;
+  color: var(--ink-900);
+}
+
+.macro-legend__kilo {
+  font-size: 10px;
+  color: var(--ink-400);
+}
+
+/* ---------- 趋势图三色堆叠 ---------- */
+.trend-bar__track {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.trend-bar__seg {
+  display: block;
+  width: 100%;
+}
+
+.trend-bar__seg--protein {
+  background: var(--sage-500);
+  border-radius: 0 0 3px 3px;
+}
+
+.trend-bar__seg--carb {
+  background: var(--amber-500);
+}
+
+.trend-bar__seg--fat {
+  background: var(--apricot-300, #f0b45c);
+  border-radius: 3px 3px 0 0;
+}
+
+.trend-bar__value {
+  font-size: 9px;
+  color: var(--ink-400);
+  margin-bottom: 2px;
+}
+
+.trend-legend {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+  font-size: 10px;
+  color: var(--ink-500);
+}
+
+.trend-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.trend-legend .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+}
+
+.trend-legend .dot--protein {
+  background: var(--sage-500);
+}
+
+.trend-legend .dot--carb {
+  background: var(--amber-500);
+}
+
+.trend-legend .dot--fat {
+  background: var(--apricot-300, #f0b45c);
 }
 </style>
