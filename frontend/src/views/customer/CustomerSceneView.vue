@@ -853,11 +853,11 @@ function skipVideo() {
   position: relative;
   z-index: 20;
   display: flex;
-  gap: var(--space-5);
+  gap: var(--ui-gap);
   /* 由 flex 自动填充 topbar 之后的剩余高度，避免手算 vh 出错 */
   flex: 1;
   min-height: 0;
-  padding: 20px var(--space-6) var(--space-5);
+  padding: calc(20px * var(--ui-scale)) calc(var(--space-6) * var(--ui-scale)) calc(var(--space-5) * var(--ui-scale));
   align-items: flex-start;
   overflow: hidden;
 }
@@ -896,25 +896,44 @@ function skipVideo() {
 }
 
 /*
- * 面板宽度策略：clamp(最小, 理想, 最大)
- * - 大屏（>=1440）：约占 56%，上限 1080，右侧留出人物空间
- * - 中屏（1024~1440）：占比逐步下降，避免遮挡人物
- * - 小屏（<1024）：单列铺满
+ * 面板宽度策略：以「视频人物安全边界」为准，而不是按视口百分比猜。
+ *
+ * 视频为 1280x720，object-fit:cover 铺满视口：
+ *  - 宽屏（视口比 > 16:9）：宽度铺满，水平不裁切，人物起始于画面 46%
+ *  - 窄屏（视口比 < 16:9）：高度铺满，水平裁切，人物会被推到更靠左
+ *
+ * 因此用 --safe-left 表示「人物开始出现的位置」，面板宽度绝不能超过它，
+ * 否则就会盖住人物。这个变量由下面的 calc 按不同视口比例计算。
  */
+.scene-view {
+  /* 人物起始位置：宽屏 46%，窄屏裁切后约 44%，取保守值 */
+  --person-left: 44%;
+  /* 面板与人物之间至少留出的空隙 */
+  --pane-gap: 24px;
+
+  /*
+   * UI 自适应缩放系数：以 1920 宽为基准，屏幕越小整体越紧凑。
+   * 用 clamp 限制在 0.82 ~ 1 之间，避免小屏缩得过小影响可读性。
+   */
+  --ui-scale: clamp(0.82, calc(100vw / 1920), 1);
+  --ui-gap: calc(var(--space-4) * var(--ui-scale));
+}
+
+/* 非点餐面板：靠左，宽度不超过人物起点 */
 .scene-pane--left {
-  width: clamp(320px, 56vw, 1080px);
+  width: min(calc(var(--person-left) - var(--pane-gap)), 1080px);
   margin-right: auto;
 }
 
 /* 点餐面板（俯视视角）：靠右 */
 .scene-pane--menu-right {
-  width: clamp(340px, 58vw, 1180px);
+  width: min(58vw, 1180px);
   margin-left: auto;
 }
 
 /* 点餐面板（用餐态）：靠左，避开右侧人物 */
 .scene-pane--menu-left {
-  width: clamp(320px, 50vw, 980px);
+  width: min(calc(var(--person-left) - var(--pane-gap)), 980px);
   margin-right: auto;
 }
 
@@ -1102,17 +1121,23 @@ function skipVideo() {
   letter-spacing: 0.08em;
 }
 
+/* 中屏：收紧间距，让同样的内容占用更少空间 */
 @media (max-width: 1439px) {
+  .scene-body {
+    padding: 16px var(--space-5) var(--space-4);
+    gap: var(--space-4);
+  }
+
   .scene-pane--left {
-    width: clamp(300px, 54vw, 900px);
+    width: min(calc(var(--person-left) - 18px), 900px);
   }
 
   .scene-pane--menu-right {
-    width: clamp(320px, 56vw, 980px);
+    width: min(56vw, 980px);
   }
 
   .scene-pane--menu-left {
-    width: clamp(300px, 48vw, 820px);
+    width: min(calc(var(--person-left) - 18px), 820px);
   }
 }
 

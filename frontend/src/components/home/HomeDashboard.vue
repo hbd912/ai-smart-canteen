@@ -264,10 +264,13 @@ defineExpose({ reload: load })
 .home-dash {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: calc(var(--space-4) * var(--ui-scale, 1));
   height: 100%;
   min-height: 0;
   padding-right: 6px;
+  /* 容器查询基准：卡片列数按「面板实际宽度」决定，而不是视口宽度 */
+  container-type: inline-size;
+  container-name: dash;
   /* 内容超出容器时在内部滚动，避免顶部被裁切 */
   overflow-y: auto;
   overflow-x: hidden;
@@ -292,6 +295,7 @@ defineExpose({ reload: load })
 .home-dash__row {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  align-items: start;
   gap: var(--space-4);
   align-items: stretch;
 }
@@ -323,7 +327,7 @@ defineExpose({ reload: load })
 .recommend-card,
 .nutrition-card,
 .category-card {
-  padding: var(--space-5);
+  padding: calc(var(--space-5) * var(--ui-scale, 1));
 }
 
 .recommend-grid {
@@ -603,6 +607,45 @@ defineExpose({ reload: load })
 @media (max-width: 1300px) {
   .category-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* 面板宽度不足时自动降列（容器查询，比视口断点更精确） */
+@container dash (max-width: 860px) {
+  /* 外层：推荐 + 营养 由两列改为上下堆叠 */
+  .home-dash__row {
+    grid-template-columns: 1fr;
+    gap: calc(var(--space-3) * var(--ui-scale, 1));
+    align-items: start;
+  }
+
+  /* 推荐卡内部仍保持 3 列紧凑，避免单列导致卡片过大 */
+  .recommend-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .category-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@container dash (max-width: 560px) {
+  .recommend-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .category-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container dash (max-width: 400px) {
+  .recommend-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .category-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
