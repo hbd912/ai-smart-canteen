@@ -77,7 +77,9 @@ public class SecurityConfig {
                         "/api/v1/dishes/**",
                         "/api/v1/categories/**",
                         "/api/v1/recommendations/home",
-                        "/api/v1/reviews/dishes/**"
+                        "/api/v1/reviews/dishes/**",
+                        "/api/v1/works",
+                        "/api/v1/works/*/comments"
                 ).permitAll()
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()

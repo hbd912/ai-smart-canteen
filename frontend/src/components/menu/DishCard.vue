@@ -43,6 +43,15 @@ const ratingBadge = computed(() => {
   return avg.toFixed(1)
 })
 const ratingCount = computed(() => props.dish.reviewCount ?? 0)
+
+/** 销量标签：月售 N 份，0 时不显示 */
+const soldText = computed(() => {
+  const n = props.dish.soldCount ?? 0
+  if (!n) {
+    return null
+  }
+  return n >= 1000 ? `月售 ${(n / 1000).toFixed(1)}k` : `月售 ${n}`
+})
 const displayBadge = computed(() => {
   if (props.badge) {
     return props.badge
@@ -125,6 +134,7 @@ function onFavorite(event: Event) {
         <span class="dish-card__price num">¥{{ formatPrice(dish.price) }}</span>
         <span class="dish-card__dot">·</span>
         <span class="dish-card__kcal num">{{ formatCalories(dish.calories) }} kcal</span>
+        <span v-if="soldText" class="dish-card__sold num">{{ soldText }}</span>
       </p>
       <div class="dish-card__tags">
         <span v-for="tag in dish.tags.slice(0, 3)" :key="tag" class="tag">{{ tag }}</span>
@@ -422,5 +432,12 @@ function onFavorite(event: Event) {
 
 .dish-card--compact .dish-card__name {
   font-size: var(--font-base);
+}
+
+.dish-card__sold {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--ink-400);
+  white-space: nowrap;
 }
 </style>

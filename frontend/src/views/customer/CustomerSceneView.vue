@@ -27,7 +27,7 @@ import MenuPanel from '@/components/menu/MenuPanel.vue'
 import DishDetailModal from '@/components/menu/DishDetailModal.vue'
 import CheckoutModal from '@/components/menu/CheckoutModal.vue'
 import OrderPanel from '@/components/order/OrderPanel.vue'
-import FavoritesPanel from '@/components/order/FavoritesPanel.vue'
+import FavoritesPanel from '@/components/order/FeaturedPanel.vue'
 import NutritionPanel from '@/components/order/NutritionPanel.vue'
 import AppIcon from '@/components/common/AppIcon.vue'
 import { useSceneStore } from '@/stores/scene'
@@ -479,6 +479,17 @@ async function toggleFavorite(dish: Dish) {
   }
 }
 
+function onOrderDishFromWork(dishId: number) {
+  // 从精选作品跳转到点餐页：直接进入点餐视图，由用户自行找到菜品
+  if (!scene.menuScene && !scene.dining) {
+    scene.dispatch({ type: 'OPEN_MENU' })
+  } else {
+    scene.dispatch({ type: 'GO_PANEL', panel: 'menu' })
+  }
+  showNavHint('已切换到点餐，找到你想吃的那道菜下单吧')
+  void dishId
+}
+
 function openDishDetail(dish: Dish) {
   detailDish.value = dish
 }
@@ -747,14 +758,8 @@ function skipVideo() {
               <FavoritesPanel
                 v-else-if="scene.activePanel === 'favorites'"
                 key="favorites"
-                :quantities="quantities"
-                :favorite-ids="favoriteIds"
-                @add="addToCart"
-                @increase="increaseDish"
-                @decrease="decreaseDish"
-                @open-dish="openDishDetail"
-                @toggle-favorite="toggleFavorite"
-                @go-menu="onNavigate('menu')"
+                :active="scene.activePanel === 'favorites'"
+                @order-dish="onOrderDishFromWork"
               />
               <NutritionPanel
                 v-else-if="scene.activePanel === 'nutrition'"

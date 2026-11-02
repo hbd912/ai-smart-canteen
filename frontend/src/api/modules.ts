@@ -181,3 +181,19 @@ export const reviewApi = {
     anonymous?: boolean
   }) => post<DishReview>('/api/v1/reviews', payload)
 }
+
+/** ---------- 精选作品 ---------- */
+export const workApi = {
+  /** 作品流（sort=hot 按点赞 / latest 按时间） */
+  feed: (sort: 'hot' | 'latest' = 'hot', page = 1, pageSize = 40) =>
+    get<Record<string, unknown>[]>('/api/v1/works', { sort, page, pageSize }),
+  /** 作品详情（含评论） */
+  detail: (id: number) => get<Record<string, unknown>>(`/api/v1/works/${id}`),
+  /** 点赞 / 取消点赞 */
+  toggleLike: (id: number) => post<{ liked: boolean }>(`/api/v1/works/${id}/like`),
+  /** 评论列表 */
+  comments: (id: number) => get<Record<string, unknown>[]>(`/api/v1/works/${id}/comments`),
+  /** 发表评论 */
+  addComment: (id: number, content: string) =>
+    post<Record<string, unknown>>(`/api/v1/works/${id}/comments`, { content })
+}
