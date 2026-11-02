@@ -264,7 +264,7 @@ defineExpose({ reload: load })
 .home-dash {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--space-4) * var(--ui-scale, 1));
+  gap: calc(var(--space-6) * var(--ui-scale, 1));
   height: 100%;
   min-height: 0;
   padding-right: 6px;
@@ -296,8 +296,8 @@ defineExpose({ reload: load })
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
   align-items: start;
-  gap: var(--space-4);
-  align-items: stretch;
+  /* 卡片之间的呼吸感：比 --space-4 更大，并随屏幕缩放 */
+  gap: calc(var(--space-6) * var(--ui-scale, 1));
 }
 
 .card-head {
@@ -591,9 +591,6 @@ defineExpose({ reload: load })
 
 /* 中屏收紧：只调整间距与网格，不改 .home-dash 自身的 padding（原本就没有） */
 @media (max-width: 1439px) {
-  .home-dash {
-    gap: var(--space-3);
-  }
 
   .recommend-grid {
     gap: 10px;
@@ -615,7 +612,7 @@ defineExpose({ reload: load })
   /* 外层：推荐 + 营养 由两列改为上下堆叠 */
   .home-dash__row {
     grid-template-columns: 1fr;
-    gap: calc(var(--space-3) * var(--ui-scale, 1));
+    gap: 20px;
     align-items: start;
   }
 

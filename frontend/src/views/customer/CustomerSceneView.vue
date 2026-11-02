@@ -912,10 +912,10 @@ function skipVideo() {
   --pane-gap: 24px;
 
   /*
-   * UI 自适应缩放系数：以 1920 宽为基准，屏幕越小整体越紧凑。
-   * 用 clamp 限制在 0.82 ~ 1 之间，避免小屏缩得过小影响可读性。
+   * UI 自适应缩放系数：纯数值，供 calc(var(--space-x) * var(--ui-scale)) 使用。
+   * 用媒体查询逐档赋值（见下方 @media），避免 clamp/calc 嵌套导致整条声明被丢弃。
    */
-  --ui-scale: clamp(0.82, calc(100vw / 1920), 1);
+  --ui-scale: 1;
   --ui-gap: calc(var(--space-4) * var(--ui-scale));
 }
 
@@ -1123,6 +1123,10 @@ function skipVideo() {
 
 /* 中屏：收紧间距，让同样的内容占用更少空间 */
 @media (max-width: 1439px) {
+  .scene-view {
+    --ui-scale: 0.96;
+  }
+
   .scene-body {
     padding: 16px var(--space-5) var(--space-4);
     gap: var(--space-4);
@@ -1156,6 +1160,10 @@ function skipVideo() {
 }
 
 @media (max-width: 1180px) {
+  .scene-view {
+    --ui-scale: 0.92;
+  }
+
   .scene-body {
     padding: 16px var(--space-4) var(--space-4);
     gap: var(--space-3);
@@ -1175,6 +1183,10 @@ function skipVideo() {
 }
 
 @media (max-width: 1023px) {
+  .scene-view {
+    --ui-scale: 0.9;
+  }
+
   .sound-anchor {
     top: auto;
     bottom: 112px;
