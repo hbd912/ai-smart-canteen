@@ -77,7 +77,7 @@ export const useSceneStore = defineStore('scene', () => {
   const transitioning = computed(() => isTransitioning(context.value.sceneState))
   const dining = computed(() => isDining(context.value.sceneState))
   const menuScene = computed(() => isMenuScene(context.value.sceneState))
-  /** 点餐面板是否可见（MENU_OPEN / CHECKOUT_OPEN / DELIVERY / DELIVERY_HOLD / EATING） */
+  /** 点餐面板是否可见（MENU_TRANSITION / MENU_OPEN / CHECKOUT_OPEN / DELIVERY_HOLD / EATING） */
   const menuPanelVisible = computed(() => isMenuPanelVisible(context.value.sceneState))
   /** 点餐面板是否在左侧（用餐态） */
   const menuPanelLeft = computed(() => isMenuPanelLeft(context.value.sceneState))

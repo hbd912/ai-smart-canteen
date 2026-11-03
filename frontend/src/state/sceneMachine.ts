@@ -200,9 +200,15 @@ export function sceneReducer(state: SceneContext, action: SceneAction): SceneCon
       }
 
     case 'MENU_ENTERED':
-      return state.sceneState === 'MENU_TRANSITION'
-        ? { ...state, sceneState: 'MENU_OPEN', activePanel: 'menu' }
-        : state
+      if (state.sceneState !== 'MENU_TRANSITION') {
+        return state
+      }
+      // 转场期间已打开结算：004-1 播完后再进入结算态（转场期间视频保持播放）
+      return {
+        ...state,
+        sceneState: state.checkoutOpen ? 'CHECKOUT_OPEN' : 'MENU_OPEN',
+        activePanel: 'menu'
+      }
 
     /**
      * 导航统一入口。
@@ -255,12 +261,24 @@ export function sceneReducer(state: SceneContext, action: SceneAction): SceneCon
     }
 
     case 'OPEN_CHECKOUT':
+      // MENU_TRANSITION 期间点餐面板已立即可见（UI 不等视频播放完出现）。
+      // 此时只打开结算弹窗、不切换 sceneState，让 004-1 继续正常播放；
+      // 播完后 MENU_ENTERED 会自动补上 CHECKOUT_OPEN。
+      if (state.sceneState === 'MENU_TRANSITION') {
+        return { ...state, checkoutOpen: true }
+      }
       if (state.sceneState !== 'MENU_OPEN') {
         return state
       }
       return { ...state, sceneState: 'CHECKOUT_OPEN', checkoutOpen: true }
 
     case 'CLOSE_CHECKOUT':
+      if (!state.checkoutOpen) {
+        return state
+      }
+      if (state.sceneState === 'MENU_TRANSITION') {
+        return { ...state, checkoutOpen: false }
+      }
       if (state.sceneState !== 'CHECKOUT_OPEN') {
         return state
       }
@@ -364,21 +382,27 @@ export function shouldShowBusinessUI(state: SceneState): boolean {
 /**
  * 点餐面板是否可见。
  *
+ * - MENU_TRANSITION：转场期 UI 立即出现（用户要求：点餐页 UI 不等 004-1 视频播放完就出现，
+ *   「视频也正常播放」，004-1 在后台播；播完自动进入 MENU_OPEN，面板一直可见）
+ * - MENU_OPEN / CHECKOUT_OPEN：正常点餐 / 结算
+ * - DELIVERY_HOLD / EATING：下单 / 用餐态，面板恢复可见
+ *
  * 注意：DELIVERY（005 播放中）**不显示**点餐面板 —— 下单后 UI 暂时消失，
  * 让 005 送餐动画完整呈现；005 播完进入 DELIVERY_HOLD 定格后，面板才淡入出现。
  */
-/** 转场期间是否需要在后台播放视频（UI 不受影响） */
-export function isBackgroundTransition(state: SceneState): boolean {
-  return state === 'MENU_EXITING' || state === 'EATING_TRANSITION'
-}
-
 export function isMenuPanelVisible(state: SceneState): boolean {
   return (
+    state === 'MENU_TRANSITION' ||
     state === 'MENU_OPEN' ||
     state === 'CHECKOUT_OPEN' ||
     state === 'DELIVERY_HOLD' ||
     state === 'EATING'
   )
+}
+
+/** 转场期间是否需要在后台播放视频（UI 不受影响） */
+export function isBackgroundTransition(state: SceneState): boolean {
+  return state === 'MENU_EXITING' || state === 'EATING_TRANSITION'
 }
 
 /**

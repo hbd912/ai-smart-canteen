@@ -230,7 +230,7 @@ $env:AI_TEMPERATURE="0.3"
 | `ENTERING` | 002-1（单次） | 登录成功后开门进入 |
 | `SEATING` | 003-1（单次） | 走向空位并坐下 |
 | `HOME_IDLE` | **007-1（循环）** | 已落座、未点餐、空桌；男主待机动画 |
-| `MENU_TRANSITION` | 004-1（单次） | 侧面转俯视；点餐面板此期间隐藏 |
+| `MENU_TRANSITION` | 004-1（单次） | 侧面转俯视；点餐面板**立即显示**（视频继续在后台播放） |
 | `MENU_OPEN` | 004-1 末帧 | 俯视点餐页；面板淡入 |
 | `MENU_EXITING` | **004-1-reverse（单次）** | 俯视回退到侧面落座视角（预生成反向视频） |
 | `CHECKOUT_OPEN` | 004-1 末帧 | 结算确认弹窗 |
@@ -251,8 +251,8 @@ LOGIN_REQUIRED --登录成功--> ENTERING
 ENTERING --002-1 ended--> SEATING
 SEATING --003-1 ended--> HOME_IDLE (循环 007-1)
 
-HOME_IDLE --点击"点餐"--> MENU_TRANSITION (007 停止, 004-1 播放, 菜单隐藏)
-MENU_TRANSITION --004-1 ended--> MENU_OPEN (菜单淡入)
+HOME_IDLE --点击"点餐"--> MENU_TRANSITION (007 停止, 004-1 播放, 点餐面板立即显示)
+MENU_TRANSITION --004-1 ended--> MENU_OPEN (面板保持可见)
 
 MENU_OPEN --点击首页/订单/收藏/营养--> MENU_EXITING (004-1-reverse 倒放, 菜单隐藏)
 MENU_EXITING --004-1-reverse ended--> HOME_IDLE (循环 007-1, 渲染目标面板)
@@ -272,7 +272,9 @@ EATING --点击"点餐"--> EATING + 提示               ← 不切视频、不�
 ### 7.3 关键约束（已实现并由测试覆盖）
 
 1. **未结算 = 空桌**：仅加入购物车、打开结算弹窗都不改变业务状态；只有后端返回订单创建成功才进入 `DELIVERY`。
-2. **转场完成才显示 UI**：`MENU_TRANSITION` 期间点餐面板完全隐藏，`004-1` 播完进入 `MENU_OPEN` 后才淡入。
+2. **点餐 UI 立即出现、视频照常播放**：点击「点餐」进入 `MENU_TRANSITION` 后点餐面板立刻显示，
+   `004-1` 仍在后台完整播放（不等待转场结束）；播完自动进入 `MENU_OPEN`，面板保持可见。
+   转场期间打开结算时同样不打断 004-1，视频播完后再落到 `CHECKOUT_OPEN`。
 3. **倒放回退**：`MENU_OPEN` 点其他导航 → 播放**预生成反向视频** `004-1-reverse`，
    **不使用 `video.playbackRate = -1`**（兼容性不稳定）；结束后切回 `HOME_IDLE` 循环 007。
 4. **005 停留**：`005-1` 播完停在最后一帧（`DELIVERY_HOLD`），**不自动播放** 008；

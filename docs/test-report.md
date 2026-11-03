@@ -248,8 +248,8 @@ SELECT COUNT(*) FROM inventory_log;                        -- 6    ✅
 
 | 断言 | 结果 | 证据 |
 | --- | --- | --- |
-| 点击点餐后播放 004-1 且菜单面板保持隐藏 | PASS | scene=MENU_TRANSITION，menuPanel=false，显示「正在切换到菜单视角…」 |
-| 004-1 播完后点餐面板才淡入 | PASS | scene=MENU_OPEN 时 menuPanel=true |
+| 点击点餐后 004-1 正常播放，点餐面板立即出现（不等视频播完） | PASS | 点击后 0.5 秒内 scene=MENU_TRANSITION，菜品列表与购物车栏已渲染，video paused=false（currentTime≈1.9s） |
+| 004-1 播完后进入 MENU_OPEN，面板保持可见 | PASS | scene=MENU_OPEN 时 menuPanel=true |
 | 点其他导航后播放 004-1-reverse 反向视频 | PASS | scene=MENU_EXITING，video=/assets/media/004-1-reverse.mp4 |
 | 倒放结束后切回 HOME_IDLE 并循环 007 | PASS | 007-1.mp4，loop=true，paused=false |
 | 未结算回退后购物车保留 | PASS | qty=1 保持不变 |
