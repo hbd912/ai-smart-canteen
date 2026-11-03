@@ -146,7 +146,7 @@ function markRead(id: number) {
   width: min(400px, 92vw);
   height: 100%;
   background: rgba(255, 253, 248, 0.98);
-  backdrop-filter: blur(20px) saturate(1.15);
+  backdrop-filter: none;
   border-left: 1px solid rgba(255, 255, 255, 0.9);
   box-shadow: var(--shadow-xl);
 }

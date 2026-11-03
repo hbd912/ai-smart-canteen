@@ -352,6 +352,11 @@ onMounted(async () => {
   height: 100%;
   padding: var(--space-5) var(--space-6) 0;
   overflow: hidden;
+  /* 面板本身背景已接近不透明（0.94），再对整块大区域做背景模糊几乎看不出效果，
+     却要在播放中的视频上每帧重新采样，开销很大；这里直接去掉模糊保证流畅 */
+  background: rgba(255, 253, 248, 0.94);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .menu-head {

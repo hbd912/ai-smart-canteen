@@ -79,10 +79,12 @@ canteen:
   ai:
     # 未配置 api-key 时自动进入规则推荐降级模式
     enabled: ${AI_ENABLED:true}
-    base-url: ${AI_BASE_URL:https://api.deepseek.com/v1}
+    base-url: ${AI_BASE_URL:https://open.bigmodel.cn/api/paas/v4}
     api-key: ${AI_API_KEY:}
-    model: ${AI_MODEL:deepseek-chat}
-    timeout-seconds: ${AI_TIMEOUT_SECONDS:20}
+    model: ${AI_MODEL:glm-5.3-flash}
+    # glm-5.3-flash 强制思考，low 可把单次推荐耗时压到 5 秒左右
+    reasoning-effort: ${AI_REASONING_EFFORT:low}
+    timeout-seconds: ${AI_TIMEOUT_SECONDS:45}
     temperature: ${AI_TEMPERATURE:0.3}
 
 logging:

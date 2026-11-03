@@ -10,14 +10,19 @@ import com.canteen.mapper.DishMapper;
 import com.canteen.mapper.OrderItemMapper;
 import com.canteen.mapper.OrderMapper;
 import com.canteen.vo.NutritionAdviceVo;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -31,9 +36,10 @@ import java.util.stream.Collectors;
  * 3. 从在售菜品中挑出最能补对应缺口的，按匹配度排序；
  * 4. 用自然语言生成推荐理由（AI 助手语气）。
  *
- * 说明：这是规则驱动的「AI 建议」演示，不调用外部大模型；
- * 数值均基于菜品估算数据，非医学检测结果。
+ * 说明：数值与推荐排序全部由系统计算，大模型只负责把结果组织成自然语言；
+ * 未配置模型或调用失败时自动回退规则文案。数值基于菜品估算数据，非医学检测结果。
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class NutritionAdviceService {
@@ -49,6 +55,8 @@ public class NutritionAdviceService {
     private final OrderItemMapper orderItemMapper;
     private final DishMapper dishMapper;
     private final DishCategoryMapper categoryMapper;
+    private final AiChatClient aiChatClient;
+    private final ObjectMapper objectMapper;
 
     public NutritionAdviceVo advice(Long userId, int days) {
         int span = Math.max(days, 1);
@@ -124,8 +132,95 @@ public class NutritionAdviceService {
         vo.setRecommendations(recs);
         vo.setHeadline(buildHeadline(weak, recs, span, items.size()));
         vo.setNote("以上基于你已经结算的订单与菜品估算营养值分析，为课堂演示数据，不是医学建议。");
+        vo.setMode("RULE");
+        vo.setModeLabel("规则分析");
+
+        // 大模型润色：数值仍由系统计算，模型只负责措辞；失败时保留规则文案
+        if (aiChatClient.isConfigured() && !recs.isEmpty()) {
+            try {
+                LlmPolish polish = polish(gaps, weak, recs, span, items.size());
+                if (StringUtils.hasText(polish.headline())) {
+                    vo.setHeadline(polish.headline());
+                }
+                for (NutritionAdviceVo.Recommendation r : recs) {
+                    String reason = polish.reasons().get(r.getDishId());
+                    if (StringUtils.hasText(reason)) {
+                        r.setReason(reason);
+                    }
+                }
+                vo.setMode("LLM");
+                vo.setModeLabel("大模型分析");
+            } catch (Exception ex) {
+                log.warn("营养建议大模型生成失败，已回退规则文案：{}", ex.getMessage());
+            }
+        }
         return vo;
     }
+
+    private record LlmPolish(String headline, Map<Long, String> reasons) {
+    }
+
+    /**
+     * 调用大模型生成总评与推荐理由。
+     * Prompt 只提供系统算出的真实统计与候选菜品，明确禁止编造数值、菜名和健康状况。
+     */
+    private LlmPolish polish(List<NutritionAdviceVo.Gap> gaps, List<NutritionAdviceVo.Gap> weak,
+                             List<NutritionAdviceVo.Recommendation> recs, int span, int itemCount) throws Exception {
+        StringBuilder sb = new StringBuilder();
+        sb.append("统计周期：最近 ").append(span).append(" 天\n");
+        sb.append("用餐记录：共 ").append(itemCount).append(" 份菜品\n");
+        for (NutritionAdviceVo.Gap g : gaps) {
+            sb.append("- ").append(g.getLabel()).append("：日均 ").append(g.getCurrent().toPlainString())
+                    .append("，参考目标 ").append(g.getTarget().toPlainString())
+                    .append("，达标率 ").append(g.getRate().toPlainString()).append("%\n");
+        }
+        sb.append("明显不足：")
+                .append(weak.isEmpty() ? "无" : weak.stream().map(NutritionAdviceVo.Gap::getLabel).collect(Collectors.joining("、")))
+                .append("\n\n候选菜品（只能从这里推荐，数值均为系统真实值）：\n");
+        for (NutritionAdviceVo.Recommendation r : recs) {
+            sb.append("- id=").append(r.getDishId())
+                    .append(" | 名称=").append(r.getDishName())
+                    .append(" | 分类=").append(r.getCategoryName() == null ? "未分类" : r.getCategoryName())
+                    .append(" | 价格=").append(r.getPrice().toPlainString()).append("元")
+                    .append(" | 热量=").append(r.getCalories().toPlainString()).append("kcal")
+                    .append(" | 蛋白质=").append(r.getProteinG().toPlainString()).append("g")
+                    .append(" | 膳食纤维=").append(r.getFiberG().toPlainString()).append("g")
+                    .append(" | 系统卖点=").append(r.getBenefit())
+                    .append('\n');
+        }
+        sb.append("\n请输出 JSON。");
+
+        String content = aiChatClient.chatJson(SYSTEM_PROMPT, sb.toString());
+        JsonNode node = objectMapper.readTree(content);
+        String headline = node.path("headline").asText("");
+        Map<Long, String> reasons = new LinkedHashMap<>();
+        for (JsonNode item : node.path("reasons")) {
+            long dishId = item.path("dishId").asLong(-1);
+            String reason = item.path("reason").asText("");
+            if (dishId > 0 && StringUtils.hasText(reason)) {
+                reasons.put(dishId, reason);
+            }
+        }
+        if (!StringUtils.hasText(headline) && reasons.isEmpty()) {
+            throw new IllegalStateException("大模型未返回有效内容");
+        }
+        return new LlmPolish(headline, reasons);
+    }
+
+    private static final String SYSTEM_PROMPT = """
+            你是「智慧食堂」的营养助手，语气亲和、具体、不夸张。
+            规则：
+            1. 所有营养数值由系统计算并提供，只能原样引用，绝不能改写、四舍五入成新结论或编造。
+            2. 只能推荐候选列表里的菜品，reason 中提到的菜名也只能来自候选列表。
+            3. 不得编造用户的病史、过敏、身高体重等信息；未提供的一律视为未知。
+            4. 只有「明显不足」列表中的营养项可以描述为「不足/缺口」，其余项（已达标的）不得说成不足。
+            5. 不做医学诊断；如涉及健康状况，提醒用户咨询专业人士。
+            6. headline 不超过 70 字，reason 每条不超过 60 字，全部使用中文。
+            7. 必须输出 JSON 对象，不要 markdown 代码块或多余解释：
+               {"headline": "一句话总评，点出最需要补的营养并给出行动建议",
+                "reasons": [{"dishId": 数字, "reason": "为什么这道菜适合该用户"}]}
+            8. reasons 必须覆盖候选列表中的每一个 dishId。
+            """;
 
     // ---------------------------------------------------------------
     // 推荐逻辑

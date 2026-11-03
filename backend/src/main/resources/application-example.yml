@@ -31,9 +31,12 @@ canteen:
 
   ai:
     enabled: true
-    base-url: ${AI_BASE_URL:https://api.deepseek.com/v1}
-    # 只允许通过环境变量注入，禁止写入本文件
+    # 智谱开放平台（GLM）
+    base-url: ${AI_BASE_URL:https://open.bigmodel.cn/api/paas/v4}
+    # 只允许通过环境变量或本地配置文件注入，禁止写入本文件
     api-key: ${AI_API_KEY:}
-    model: ${AI_MODEL:deepseek-chat}
-    timeout-seconds: 20
+    model: ${AI_MODEL:glm-5.3-flash}
+    # glm-5.3-flash 强制思考，low/high/max 控制耗时
+    reasoning-effort: ${AI_REASONING_EFFORT:low}
+    timeout-seconds: 45
     temperature: 0.3

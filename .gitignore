@@ -51,6 +51,9 @@ application-prod.yml
 backend/uploads/*
 !backend/uploads/.gitkeep
 
+# ---------- 原始音频素材（运行资源已复制到 frontend/public/assets/audio） ----------
+Music/
+
 # ---------- 日志与临时文件 ----------
 *.log
 logs/

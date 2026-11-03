@@ -77,14 +77,15 @@ export const favoriteApi = {
 export const nutritionApi = {
   summary: (days = 7) => get<NutritionSummary>('/api/v1/nutrition/summary', { days }),
   trends: (days = 7) => get<NutritionSummary['trend']>('/api/v1/nutrition/trends', { days }),
-  advice: (days = 7) => get<Record<string, unknown>>('/api/v1/nutrition/advice', { days })
+  advice: (days = 7) =>
+    get<Record<string, unknown>>('/api/v1/nutrition/advice', { days }, false, { timeout: 60000 })
 }
 
 /** ---------- AI ---------- */
 export const aiApi = {
   status: () => get<AiStatus>('/api/v1/ai/status'),
   recommend: (payload: { message: string; conversationId?: number | null; budgetMax?: number }) =>
-    post<AiRecommendResult>('/api/v1/ai/recommend', payload)
+    post<AiRecommendResult>('/api/v1/ai/recommend', payload, false, { timeout: 60000 })
 }
 
 /** ---------- 管理后台 ---------- */

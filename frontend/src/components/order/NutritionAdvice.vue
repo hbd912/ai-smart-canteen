@@ -45,6 +45,7 @@ const headline = ref('')
 const gaps = ref<Gap[]>([])
 const recommendations = ref<Recommendation[]>([])
 const note = ref('')
+const modeLabel = ref('')
 
 const weakGaps = computed(() => gaps.value.filter((g) => g.status === 'LOW'))
 
@@ -56,11 +57,13 @@ async function load() {
       gaps: Gap[]
       recommendations: Recommendation[]
       note: string
+      modeLabel?: string
     }
     headline.value = res.headline
     gaps.value = res.gaps ?? []
     recommendations.value = res.recommendations ?? []
     note.value = res.note
+    modeLabel.value = res.modeLabel ?? ''
   } catch {
     headline.value = '暂时无法获取营养建议'
     gaps.value = []
@@ -83,7 +86,10 @@ defineExpose({ reload: load })
         <AppIcon name="robot" :size="17" />
       </span>
       <div class="advice-ai__title-wrap">
-        <h3 class="advice-ai__title">AI 营养助手</h3>
+        <div class="advice-ai__title-line">
+          <h3 class="advice-ai__title">AI 营养助手</h3>
+          <span v-if="modeLabel" class="advice-ai__badge">{{ modeLabel }}</span>
+        </div>
         <p class="advice-ai__sub">根据你最近 {{ days }} 天的用餐记录分析</p>
       </div>
     </header>
@@ -175,10 +181,27 @@ defineExpose({ reload: load })
   flex-direction: column;
 }
 
+.advice-ai__title-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .advice-ai__title {
   font-size: var(--font-sm);
   font-weight: 700;
   color: var(--sage-800);
+}
+
+.advice-ai__badge {
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: rgba(124, 143, 90, 0.16);
+  color: var(--sage-700);
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
 }
 
 .advice-ai__sub {

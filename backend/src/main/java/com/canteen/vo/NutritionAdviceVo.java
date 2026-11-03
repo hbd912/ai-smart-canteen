@@ -27,6 +27,12 @@ public class NutritionAdviceVo {
     /** 补充说明（估算值声明） */
     private String note;
 
+    /** 文案生成方式：LLM（大模型）/ RULE（规则兜底） */
+    private String mode;
+
+    /** 前端展示的模式标签，如「大模型分析」 */
+    private String modeLabel;
+
     @Data
     public static class Gap {
         /** protein / fiber / calorie / vegetable / water */

@@ -384,25 +384,25 @@ EATING --点击"点餐"--> EATING + 提示               ← 不切视频、不�
 
 ## 九、素材映射
 
-### 9.1 视频素材（保持原始分辨率，H.264 + AAC）
+### 9.1 视频素材（统一 1920×1080，H.264）
 
 | 素材 | 项目路径 | 时长 | 分辨率 | 编码 | 播放方式 |
 | --- | --- | --- | --- | --- | --- |
-| 001-1 | `frontend/public/assets/media/001-1.mp4` | 3.111s | 2554×1440 | h264 / 30fps | 单次 |
-| 002-1 | `frontend/public/assets/media/002-1.mp4` | 1.811s | 2554×1440 | h264 / 30fps | 单次 |
-| 003-1 | `frontend/public/assets/media/003-1.mp4` | 5.042s | 1284×724 | h264 / 24fps | 单次 |
-| 004-1 | `frontend/public/assets/media/004-1.mp4` | 5.042s | 1284×724 | h264 / 24fps | 单次 |
-| 004-1-reverse | `frontend/public/assets/media/004-1-reverse.mp4` | 5.042s | 1284×724 | h264 / 24fps | 单次（预生成反向） |
-| 005-1 | `frontend/public/assets/media/005-1.mp4` | 5.042s | 1284×724 | h264 / 24fps | 单次，停在末帧 |
-| 006-1 | `frontend/public/assets/media/006-1.mp4` | 5.042s | 1284×724 | h264 / 24fps | 单次 |
-| **007-1** | `frontend/public/assets/media/007-1.mp4` | 5.042s | 1280×720 | h264 / 24fps | **循环（HOME_IDLE）** |
-| **008-1** | `frontend/public/assets/media/008-1.mp4` | 5.042s | 1280×720 | h264 / 24fps | **循环（EATING）** |
+| 001-1 | `frontend/public/assets/media/001-1.mp4` | 3.111s | 1920×1080 | h264 / 30fps | 单次 |
+| 002-1 | `frontend/public/assets/media/002-1.mp4` | 1.811s | 1920×1080 | h264 / 30fps | 单次 |
+| 003-1 | `frontend/public/assets/media/003-1.mp4` | 5.042s | 1920×1080 | h264 / 24fps | 单次 |
+| 004-1 | `frontend/public/assets/media/004-1.mp4` | 5.042s | 1920×1080 | h264 / 24fps | 单次 |
+| 004-1-reverse | `frontend/public/assets/media/004-1-reverse.mp4` | 5.042s | 1920×1080 | h264 / 24fps | 单次（预生成反向） |
+| 005-1 | `frontend/public/assets/media/005-1.mp4` | 5.042s | 1920×1080 | h264 / 24fps | 单次，停在末帧 |
+| 006-1 | `frontend/public/assets/media/006-1.mp4` | 5.042s | 1920×1080 | h264 / 24fps | 单次 |
+| **007-1** | `frontend/public/assets/media/007-1.mp4` | 5.042s | 1920×1080 | h264 / 24fps | **循环（HOME_IDLE）** |
+| **008-1** | `frontend/public/assets/media/008-1.mp4` | 5.042s | 1920×1080 | h264 / 24fps | **循环（EATING）** |
 
-> **画质策略（重要）**：网页素材保持**原始分辨率与码率**，不做二次压缩。
-> 原本就是 H.264 的 003~008 直接 `-c copy` 流复制（完全无损）；
-> HEVC 的 001/002 必须转 H.264 才能被浏览器播放，使用 `-crf 16 -preset slow`（近似视觉无损），
-> 且**保持原始 2554×1440**，不做降分辨率。
-> 前端 `object-fit: contain` 按原始比例完整铺满，不放大裁切，无强制合成层、无滤镜。
+> **画质策略（重要）**：所有网页素材统一重采样为 **1920×1080** 并重编码为 H.264（`-crf 18 -preset slow`，
+> lanczos 缩放 + 轻微 unsharp），音轨移除（声音由独立 mp3 播放）。
+> 这样 720p 源不会被浏览器放大到约 1.4 倍导致发糊，1440p 的 001/002 也不会因 19Mbps 解码而卡顿。
+> 前端 `object-fit: cover` 铺满视口，`?v=v2-1080p` 版本号用于强制刷新旧缓存。
+> 媒体配置更新后请同步递增 `frontend/src/config/media.ts` 中的 `MEDIA_VERSION`。
 
 原始文件（HEVC/H.264 混合）保留在 `Animation/`，未做任何修改。
 `004-1-reverse.mp4` 同样由 `reverse` 预生成，保留备用。

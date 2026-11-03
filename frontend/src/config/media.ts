@@ -32,7 +32,7 @@ export interface SceneVideoMeta {
   subjectArea: { left: number; right: number; top: number; bottom: number }
 }
 
-export const SCENE_VIDEOS: Record<SceneVideoId, SceneVideoMeta> = {
+const BASE_SCENE_VIDEOS: Record<SceneVideoId, SceneVideoMeta> = {
   '001-1': {
     id: '001-1',
     src: '/assets/media/001-1.mp4',
@@ -145,6 +145,26 @@ export const SCENE_VIDEOS: Record<SceneVideoId, SceneVideoMeta> = {
   }
 }
 
+/** 媒体版本号：视频 / 封面帧更新后递增，强制浏览器丢弃旧缓存（浏览器对 Range 请求会长期缓存旧 mp4） */
+const MEDIA_VERSION = 'v2-1080p'
+
+function versioned(path: string): string {
+  return `${path}?v=${MEDIA_VERSION}`
+}
+
+/** 对外配置：视频与封面统一带版本号，避免继续播放旧的低清缓存 */
+export const SCENE_VIDEOS: Record<SceneVideoId, SceneVideoMeta> = Object.fromEntries(
+  (Object.entries(BASE_SCENE_VIDEOS) as [SceneVideoId, SceneVideoMeta][]).map(([id, meta]) => [
+    id,
+    {
+      ...meta,
+      src: versioned(meta.src),
+      poster: versioned(meta.poster),
+      endPoster: versioned(meta.endPoster)
+    }
+  ])
+) as Record<SceneVideoId, SceneVideoMeta>
+
 /** 叙事过渡视频（只播放一次，不循环） */
 export const NARRATIVE_VIDEOS: SceneVideoId[] = [
   '001-1', '002-1', '003-1', '004-1', '004-1-reverse', '005-1', '006-1'
@@ -160,8 +180,8 @@ export const VIDEO_ORDER: SceneVideoId[] = [
 
 /** ping-pong 往返视频对（正放 <-> 倒放） */
 export const PING_PONG_PAIR = {
-  forward: '/assets/media/007-1.mp4',
-  reverse: '/assets/media/007-reversed.mp4'
+  forward: versioned('/assets/media/007-1.mp4'),
+  reverse: versioned('/assets/media/007-reversed.mp4')
 } as const
 
 export const DISH_PLACEHOLDER = '/assets/images/dishes/dish-placeholder.webp'

@@ -31,6 +31,7 @@ import OrderPanel from '@/components/order/OrderPanel.vue'
 import FavoritesPanel from '@/components/order/FeaturedPanel.vue'
 import NutritionPanel from '@/components/order/NutritionPanel.vue'
 import AppIcon from '@/components/common/AppIcon.vue'
+import AiChatWidget from '@/components/ai/AiChatWidget.vue'
 import { useSceneStore } from '@/stores/scene'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
@@ -839,6 +840,9 @@ function skipVideo() {
     <!-- 通知抽屉 -->
     <NotificationDrawer :open="notificationsOpen" @close="notificationsOpen = false" />
 
+    <!-- 悬浮聊天小助手 -->
+    <AiChatWidget v-if="showBusinessUI" />
+
     <!-- 导航提示 -->
     <Transition name="toast">
       <div v-if="navHint" class="nav-hint" role="status">
@@ -899,6 +903,14 @@ function skipVideo() {
   overflow: visible;
 }
 
+/* 场景里的玻璃卡片大面积压在播放中的视频上，16px 背景模糊每帧都要重新采样，
+   是播放不流畅的主要原因；这里降到 8px 并略微提亮底色，观感基本一致但明显更省 GPU */
+.scene-pane :deep(.glass-card) {
+  background: rgba(255, 253, 248, 0.88);
+  backdrop-filter: blur(8px) saturate(1.1);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+}
+
 /* 点餐面板出现/位置切换的淡入淡出（005 播完后面板渐变出现） */
 .menu-appear-enter-active {
   transition: opacity var(--motion-slow) var(--ease-standard),
@@ -933,7 +945,7 @@ function skipVideo() {
 /*
  * 面板宽度策略：以「视频人物安全边界」为准，而不是按视口百分比猜。
  *
- * 视频为 1280x720，object-fit:cover 铺满视口：
+ * 视频为 1920x1080，object-fit:cover 铺满视口：
  *  - 宽屏（视口比 > 16:9）：宽度铺满，水平不裁切，人物起始于画面 46%
  *  - 窄屏（视口比 < 16:9）：高度铺满，水平裁切，人物会被推到更靠左
  *

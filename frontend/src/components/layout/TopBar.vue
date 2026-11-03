@@ -86,9 +86,9 @@ const greetingText = computed(() => `${greeting()}，${auth.displayName}`)
   margin: 0 var(--space-6);
   margin-top: var(--space-4);
   border-radius: var(--radius-pill);
-  background: rgba(255, 253, 248, 0.78);
-  backdrop-filter: blur(18px) saturate(1.2);
-  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  background: rgba(255, 253, 248, 0.82);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
   border: 1px solid rgba(255, 255, 255, 0.85);
   box-shadow: var(--shadow-md);
   transition: background-color var(--motion-normal) var(--ease-standard),

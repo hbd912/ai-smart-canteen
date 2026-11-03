@@ -50,10 +50,12 @@ public class CanteenProperties {
     @Data
     public static class Ai {
         private boolean enabled = true;
-        private String baseUrl = "https://api.deepseek.com/v1";
+        private String baseUrl = "https://open.bigmodel.cn/api/paas/v4";
         private String apiKey = "";
-        private String model = "deepseek-chat";
-        private int timeoutSeconds = 20;
+        private String model = "glm-5.3-flash";
+        /** 思考强度：low / high / max（部分模型不支持关闭思考） */
+        private String reasoningEffort = "low";
+        private int timeoutSeconds = 45;
         private double temperature = 0.3;
     }
 }

@@ -176,15 +176,15 @@ const ppReversePoster = computed(() => SCENE_VIDEOS['007-reversed'].poster)
   opacity: 1;
 }
 
+/* 静态暖光层：原先使用 mix-blend-mode + 无限动画，会在每一帧视频上与视频做全屏混合，
+   是播放卡顿的主要来源之一；改为普通合成 + 固定渐变，观感基本一致但不再逐帧重算 */
 .scene-bg__ambient {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(48% 42% at 12% 8%, rgba(255, 226, 178, 0.16), transparent 72%),
-    radial-gradient(42% 38% at 88% 92%, rgba(204, 226, 188, 0.14), transparent 74%);
-  animation: ambient-drift 19s ease-in-out infinite;
-  mix-blend-mode: soft-light;
+    radial-gradient(48% 42% at 12% 8%, rgba(255, 226, 178, 0.07), transparent 72%),
+    radial-gradient(42% 38% at 88% 92%, rgba(204, 226, 188, 0.06), transparent 74%);
 }
 
 .scene-bg__vignette {

@@ -9,12 +9,17 @@ import com.canteen.entity.AiConversation;
 import com.canteen.entity.AiMessage;
 import com.canteen.entity.Dish;
 import com.canteen.entity.DishCategory;
+import com.canteen.entity.Order;
+import com.canteen.entity.OrderItem;
 import com.canteen.mapper.AiConversationMapper;
 import com.canteen.mapper.AiMessageMapper;
 import com.canteen.mapper.DishCategoryMapper;
 import com.canteen.mapper.DishMapper;
+import com.canteen.mapper.OrderItemMapper;
+import com.canteen.mapper.OrderMapper;
 import com.canteen.vo.AiRecommendVo;
 import com.canteen.vo.AiStatusVo;
+import com.canteen.vo.NutritionSummaryVo;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +34,9 @@ import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -60,9 +67,14 @@ public class AiRecommendationService {
 
     private static final Pattern JSON_BLOCK = Pattern.compile("\\{[\\s\\S]*}");
     private static final AtomicReference<String> LAST_ERROR = new AtomicReference<>(null);
+    /** 用户用餐上下文的统计周期（天） */
+    private static final int CONTEXT_DAYS = 7;
 
     private final DishMapper dishMapper;
     private final DishCategoryMapper categoryMapper;
+    private final OrderMapper orderMapper;
+    private final OrderItemMapper orderItemMapper;
+    private final NutritionService nutritionService;
     private final AiConversationMapper conversationMapper;
     private final AiMessageMapper messageMapper;
     private final CanteenProperties properties;
@@ -109,7 +121,7 @@ public class AiRecommendationService {
         }
         if (isLlmConfigured()) {
             try {
-                vo = callLlm(request, candidates);
+                vo = callLlm(userId, request, candidates);
             } catch (Exception ex) {
                 LAST_ERROR.set(ex.getClass().getSimpleName() + ": " + safeMessage(ex));
                 log.warn("大模型调用失败，降级为规则推荐：{}", safeMessage(ex));
@@ -147,7 +159,7 @@ public class AiRecommendationService {
     // 大模型调用
     // ---------------------------------------------------------------
 
-    private AiRecommendVo callLlm(AiRecommendRequest request, List<Dish> candidates) throws Exception {
+    private AiRecommendVo callLlm(Long userId, AiRecommendRequest request, List<Dish> candidates) throws Exception {
         CanteenProperties.Ai ai = properties.getAi();
         Map<Long, DishCategory> categories = categoryMapper.selectList(null).stream()
                 .collect(Collectors.toMap(DishCategory::getId, Function.identity(), (a, b) -> a));
@@ -163,13 +175,20 @@ public class AiRecommendationService {
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
 
-        String prompt = buildPrompt(request, candidates, categories);
+        String prompt = buildPrompt(userId, request, candidates, categories);
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", ai.getModel());
         payload.put("temperature", ai.getTemperature());
-        payload.put("messages", List.of(
-                Map.of("role", "system", "content", SYSTEM_PROMPT),
-                Map.of("role", "user", "content", prompt)));
+        // GLM 系列模型默认思考时间较长，可配置 low/high/max 控制耗时
+        if (StringUtils.hasText(ai.getReasoningEffort())) {
+            payload.put("reasoning_effort", ai.getReasoningEffort());
+        }
+        // 多轮对话：带上同一会话最近几条消息，让「再便宜点」这类追问能接上上下文
+        List<Map<String, String>> messages = new ArrayList<>();
+        messages.add(Map.of("role", "system", "content", SYSTEM_PROMPT));
+        messages.addAll(loadHistory(userId, request.getConversationId()));
+        messages.add(Map.of("role", "user", "content", prompt));
+        payload.put("messages", messages);
         payload.put("response_format", Map.of("type", "json_object"));
 
         String raw = client.post()
@@ -188,20 +207,70 @@ public class AiRecommendationService {
         return parseLlmContent(content.asText(), candidates, categories);
     }
 
+    /**
+     * 读取同一会话最近 6 条消息作为多轮上下文。
+     * 会话必须属于当前用户；历史 assistant 消息里的「| dishes=」内部标记会被剥离。
+     */
+    private List<Map<String, String>> loadHistory(Long userId, Long conversationId) {
+        if (conversationId == null) {
+            return List.of();
+        }
+        try {
+            AiConversation conversation = conversationMapper.selectById(conversationId);
+            if (conversation == null || !userIdsEqual(conversation.getUserId(), userId)) {
+                return List.of();
+            }
+            List<AiMessage> history = messageMapper.selectList(new LambdaQueryWrapper<AiMessage>()
+                    .eq(AiMessage::getConversationId, conversationId)
+                    .in(AiMessage::getRole, "USER", "ASSISTANT")
+                    .orderByDesc(AiMessage::getId)
+                    .last("LIMIT 6"));
+            Collections.reverse(history);
+            List<Map<String, String>> out = new ArrayList<>();
+            for (AiMessage m : history) {
+                String content = stripDishMarkers(m.getContent());
+                if (!StringUtils.hasText(content)) {
+                    continue;
+                }
+                out.add(Map.of(
+                        "role", "USER".equalsIgnoreCase(m.getRole()) ? "user" : "assistant",
+                        "content", content.length() > 300 ? content.substring(0, 300) : content));
+            }
+            return out;
+        } catch (Exception ex) {
+            return List.of();
+        }
+    }
+
+    private boolean userIdsEqual(Long a, Long b) {
+        return a != null && a.equals(b);
+    }
+
+    private String stripDishMarkers(String content) {
+        if (content == null) {
+            return "";
+        }
+        int index = content.indexOf(" | dishes=");
+        return (index >= 0 ? content.substring(0, index) : content).trim();
+    }
+
     private static final String SYSTEM_PROMPT = """
             你是"智慧食堂"的点餐助手。请严格根据用户提供的候选菜品列表（包含真实 ID、价格、热量、营养、分类、标签）
             给出 2-3 道推荐，并说明理由。
             规则：
-            1. 只能从候选菜品中选择，绝不能编造菜名、价格或营养数值。
-            2. 必须输出 JSON 对象，不要输出 markdown 代码块或多余解释。
-            3. JSON 结构：{"reply": "给用户的自然语言回复", "recommendations": [{"dishId": 数字, "reason": "推荐理由"}], "tips": ["搭配或注意事项"]}
-            4. 若用户有预算/热量/口味限制，请在 reason 中体现如何满足。
+            1. 只能从候选菜品中选择，绝不能编造菜名、价格或营养数值；reply/tips 里提到的菜名也必须来自候选列表。
+            2. 用户近期用餐数据是系统统计的真实值，只能引用给出的数字；未提供的信息（如疾病、过敏、身高体重）
+               一律视为未知，不要假设或编造，必要时提醒用户补充。
+            3. 必须输出 JSON 对象，不要输出 markdown 代码块或多余解释。
+            4. JSON 结构：{"reply": "给用户的自然语言回复", "recommendations": [{"dishId": 数字, "reason": "推荐理由"}], "tips": ["搭配或注意事项"]}
+            5. 若用户有预算/热量/口味限制，请在 reason 中体现如何满足；回答要结合用户近期用餐数据给出具体建议。
             """;
 
-    private String buildPrompt(AiRecommendRequest request, List<Dish> candidates,
+    private String buildPrompt(Long userId, AiRecommendRequest request, List<Dish> candidates,
                                Map<Long, DishCategory> categories) {
         StringBuilder sb = new StringBuilder();
-        sb.append("用户需求：").append(request.getMessage()).append('\n');
+        sb.append(buildUserContext(userId, request));
+        sb.append("\n用户本次需求：").append(request.getMessage()).append('\n');
         if (request.getBudgetMax() != null) {
             sb.append("预算上限（元）：").append(request.getBudgetMax().toPlainString()).append('\n');
         }
@@ -222,6 +291,70 @@ public class AiRecommendationService {
         }
         sb.append("\n请以 JSON 返回推荐结果。");
         return sb.toString();
+    }
+
+    /**
+     * 用户自身情况：最近 N 天的真实消费统计与常点菜品。
+     * 数据只来自订单表，读取失败时明确告知模型「未知」，避免它编造用户画像。
+     */
+    private String buildUserContext(Long userId, AiRecommendRequest request) {
+        StringBuilder sb = new StringBuilder("用户近期用餐数据（系统统计，真实值）：\n");
+        try {
+            NutritionSummaryVo summary = nutritionService.summary(userId, CONTEXT_DAYS);
+            sb.append("- 统计周期：").append(summary.getPeriod()).append('\n');
+            sb.append("- 有效订单数：").append(summary.getOrderCount())
+                    .append("，菜品份数：").append(summary.getDishCount()).append('\n');
+            sb.append("- 日均热量：").append(summary.getDailyCalories().toPlainString())
+                    .append(" kcal（参考目标 ").append(summary.getTargetCalories().toPlainString()).append("）\n");
+            sb.append("- 日均蛋白质：").append(summary.getDailyProtein().toPlainString())
+                    .append(" g（参考目标 ").append(summary.getTargetProtein().toPlainString()).append("）\n");
+            sb.append("- 同期累计：脂肪 ").append(summary.getTotalFat().toPlainString())
+                    .append(" g，碳水 ").append(summary.getTotalCarbohydrate().toPlainString())
+                    .append(" g，膳食纤维 ").append(summary.getTotalFiber().toPlainString()).append(" g（估算）\n");
+            if (summary.getOrderCount() == 0) {
+                sb.append("- 说明：该用户最近没有用餐记录，不要编造历史偏好或忌口。\n");
+            }
+        } catch (Exception ex) {
+            sb.append("- 用户用餐数据读取失败，请仅基于本次提问与候选菜品回答，不要编造历史数据。\n");
+            log.warn("读取用户用餐上下文失败：{}", safeMessage(ex));
+        }
+        List<String> recent = recentDishNames(userId);
+        sb.append("- 最近点过：").append(recent.isEmpty() ? "暂无记录" : String.join("、", recent)).append('\n');
+        if (request.getBudgetMax() != null) {
+            sb.append("- 本次预算上限：").append(request.getBudgetMax().toPlainString()).append(" 元\n");
+        }
+        return sb.toString();
+    }
+
+    private List<String> recentDishNames(Long userId) {
+        try {
+            LocalDateTime since = LocalDateTime.now().minusDays(CONTEXT_DAYS);
+            List<Order> orders = orderMapper.selectList(new LambdaQueryWrapper<Order>()
+                    .eq(Order::getUserId, userId)
+                    .in(Order::getOrderStatus, Constants.OrderStatus.REVENUE_STATUSES)
+                    .ge(Order::getCreatedAt, since));
+            List<Long> orderIds = orders.stream().map(Order::getId).toList();
+            if (orderIds.isEmpty()) {
+                return List.of();
+            }
+            List<OrderItem> items = orderItemMapper.selectList(new LambdaQueryWrapper<OrderItem>()
+                    .in(OrderItem::getOrderId, orderIds));
+            Map<String, Integer> counts = new LinkedHashMap<>();
+            for (OrderItem item : items) {
+                String name = item.getDishNameSnapshot();
+                if (!StringUtils.hasText(name)) {
+                    continue;
+                }
+                counts.merge(name, item.getQuantity() == null ? 1 : item.getQuantity(), Integer::sum);
+            }
+            return counts.entrySet().stream()
+                    .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                    .limit(5)
+                    .map(e -> e.getKey() + "×" + e.getValue())
+                    .toList();
+        } catch (Exception ex) {
+            return List.of();
+        }
     }
 
     private AiRecommendVo parseLlmContent(String content, List<Dish> candidates,

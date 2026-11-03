@@ -113,9 +113,14 @@ async function unwrap<T>(promise: Promise<{ data: ApiResponse<T> }>): Promise<T>
   return body as unknown as T
 }
 
-export function get<T>(url: string, params?: Record<string, unknown>, admin = false): Promise<T> {
+export function get<T>(
+  url: string,
+  params?: Record<string, unknown>,
+  admin = false,
+  config?: AxiosRequestConfig
+): Promise<T> {
   const client = admin ? adminHttp : userHttp
-  return unwrap<T>(client.get(url, { params }))
+  return unwrap<T>(client.get(url, { ...config, params }))
 }
 
 export function post<T>(url: string, data?: unknown, admin = false, config?: AxiosRequestConfig): Promise<T> {

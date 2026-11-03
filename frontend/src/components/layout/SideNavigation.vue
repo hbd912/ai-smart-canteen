@@ -83,9 +83,9 @@ function onClick(item: NavItem) {
   gap: 6px;
   padding: 12px 8px;
   border-radius: var(--radius-pill);
-  background: rgba(255, 253, 248, 0.76);
-  backdrop-filter: blur(16px) saturate(1.2);
-  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  background: rgba(255, 253, 248, 0.82);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
   border: 1px solid rgba(255, 255, 255, 0.85);
   box-shadow: var(--shadow-md);
 }
