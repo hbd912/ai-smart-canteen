@@ -19,6 +19,8 @@ export type SceneVideoId =
 export interface SceneVideoMeta {
   id: SceneVideoId
   src: string
+  /** 与动画等长的独立音轨（mp4 已静音，声音只从音轨播放） */
+  audioSrc: string
   poster: string
   endPoster: string
   label: string
@@ -34,6 +36,7 @@ export const SCENE_VIDEOS: Record<SceneVideoId, SceneVideoMeta> = {
   '001-1': {
     id: '001-1',
     src: '/assets/media/001-1.mp4',
+    audioSrc: '/assets/audio/001-1.mp3',
     poster: '/assets/media/frames/001-1-first.webp',
     endPoster: '/assets/media/frames/001-1-last.webp',
     label: '走向食堂',
@@ -44,6 +47,7 @@ export const SCENE_VIDEOS: Record<SceneVideoId, SceneVideoMeta> = {
   '002-1': {
     id: '002-1',
     src: '/assets/media/002-1.mp4',
+    audioSrc: '/assets/audio/002-1.mp3',
     poster: '/assets/media/frames/002-1-first.webp',
     endPoster: '/assets/media/frames/002-1-last.webp',
     label: '推门而入',
@@ -54,6 +58,7 @@ export const SCENE_VIDEOS: Record<SceneVideoId, SceneVideoMeta> = {
   '003-1': {
     id: '003-1',
     src: '/assets/media/003-1.mp4',
+    audioSrc: '/assets/audio/003-1.mp3',
     poster: '/assets/media/frames/003-1-first.webp',
     endPoster: '/assets/media/frames/003-1-last.webp',
     label: '落座',
@@ -64,6 +69,7 @@ export const SCENE_VIDEOS: Record<SceneVideoId, SceneVideoMeta> = {
   '004-1': {
     id: '004-1',
     src: '/assets/media/004-1.mp4',
+    audioSrc: '/assets/audio/004-1.mp3',
     poster: '/assets/media/frames/004-1-first.webp',
     endPoster: '/assets/media/frames/004-1-last.webp',
     label: '查看菜单',
@@ -74,6 +80,7 @@ export const SCENE_VIDEOS: Record<SceneVideoId, SceneVideoMeta> = {
   '004-1-reverse': {
     id: '004-1-reverse',
     src: '/assets/media/004-1-reverse.mp4',
+    audioSrc: '/assets/audio/004-1.mp3',
     poster: '/assets/media/frames/004-1-last.webp',
     endPoster: '/assets/media/frames/004-1-first.webp',
     label: '退出菜单',
@@ -84,6 +91,7 @@ export const SCENE_VIDEOS: Record<SceneVideoId, SceneVideoMeta> = {
   '005-1': {
     id: '005-1',
     src: '/assets/media/005-1.mp4',
+    audioSrc: '/assets/audio/005-1.mp3',
     poster: '/assets/media/frames/005-1-first.webp',
     endPoster: '/assets/media/frames/005-1-last.webp',
     label: '服务员送餐',
@@ -94,6 +102,7 @@ export const SCENE_VIDEOS: Record<SceneVideoId, SceneVideoMeta> = {
   '006-1': {
     id: '006-1',
     src: '/assets/media/006-1.mp4',
+    audioSrc: '/assets/audio/006-1.mp3',
     poster: '/assets/media/frames/006-1-first.webp',
     endPoster: '/assets/media/frames/006-1-last.webp',
     label: '视角转换',
@@ -104,6 +113,7 @@ export const SCENE_VIDEOS: Record<SceneVideoId, SceneVideoMeta> = {
   '007-1': {
     id: '007-1',
     src: '/assets/media/007-1.mp4',
+    audioSrc: '/assets/audio/007-1.mp3',
     poster: '/assets/media/frames/007-1-first.webp',
     endPoster: '/assets/media/frames/007-1-last.webp',
     label: '落座待机',
@@ -114,6 +124,7 @@ export const SCENE_VIDEOS: Record<SceneVideoId, SceneVideoMeta> = {
   '007-reversed': {
     id: '007-reversed',
     src: '/assets/media/007-reversed.mp4',
+    audioSrc: '/assets/audio/007-1.mp3',
     poster: '/assets/media/frames/007-1-last.webp',
     endPoster: '/assets/media/frames/007-1-first.webp',
     label: '落座待机（倒放）',
@@ -124,6 +135,7 @@ export const SCENE_VIDEOS: Record<SceneVideoId, SceneVideoMeta> = {
   '008-1': {
     id: '008-1',
     src: '/assets/media/008-1.mp4',
+    audioSrc: '/assets/audio/008-1.mp3',
     poster: '/assets/media/frames/008-1-first.webp',
     endPoster: '/assets/media/frames/008-1-last.webp',
     label: '用餐中',

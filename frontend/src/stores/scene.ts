@@ -42,6 +42,13 @@ export const useSceneStore = defineStore('scene', () => {
   const context = ref<SceneContext>(createInitialContext())
   const nowTick = ref(Date.now())
   let tickTimer = 0
+  /** 用餐冷却结束时通知外部（订单需推进为 COMPLETED），携带到期前的订单号 */
+  const diningFinishedHandlers = new Set<(orderId: number) => void>()
+
+  function onDiningFinished(handler: (orderId: number) => void) {
+    diningFinishedHandlers.add(handler)
+    return () => diningFinishedHandlers.delete(handler)
+  }
 
   function startTick() {
     if (tickTimer) {
@@ -50,7 +57,12 @@ export const useSceneStore = defineStore('scene', () => {
     tickTimer = window.setInterval(() => {
       nowTick.value = Date.now()
       if (context.value.diningCooldownUntil !== null && nowTick.value >= context.value.diningCooldownUntil) {
+        // CLEAR_COOLDOWN 会清空 currentOrderId，先取出来再切换回 HOME_IDLE
+        const orderId = context.value.currentOrderId
         dispatch({ type: 'CLEAR_COOLDOWN' })
+        if (orderId !== null) {
+          diningFinishedHandlers.forEach((handler) => handler(orderId))
+        }
       }
     }, 1000)
   }
@@ -173,6 +185,7 @@ export const useSceneStore = defineStore('scene', () => {
     cooldownActive,
     cooldownMinutes,
     dispatch,
+    onDiningFinished,
     startTick,
     stopTick,
     restore,

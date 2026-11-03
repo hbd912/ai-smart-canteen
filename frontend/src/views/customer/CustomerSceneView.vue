@@ -38,9 +38,10 @@ import { useFavoriteStore } from '@/stores/favorites'
 import { useToastStore } from '@/stores/toast'
 import { useAudioUnlock } from '@/composables/useAudioUnlock'
 import { usePingPongVideo } from '@/composables/usePingPongVideo'
+import { useSceneAudio } from '@/scene/useSceneAudio'
 import { dishApi, orderApi } from '@/api/modules'
 import { PING_PONG_PAIR, SCENE_VIDEOS, type SceneVideoId } from '@/config/media'
-import { shouldShowBusinessUI, type ActivePanel } from '@/state/sceneMachine'
+import { DINING_COOLDOWN_MINUTES, shouldShowBusinessUI, type ActivePanel } from '@/state/sceneMachine'
 import type { Category, Dish, Order } from '@/types/api'
 
 const router = useRouter()
@@ -64,6 +65,7 @@ const pingPong = usePingPongVideo({
 // 数据状态
 // ---------------------------------------------------------------
 const currentOrder = ref<Order | null>(null)
+let offDiningFinished: (() => void) | undefined
 const detailDish = ref<Dish | null>(null)
 const menuCategoryId = ref<number | null>(null)
 const submitting = ref(false)
@@ -104,10 +106,14 @@ const isDeliveryHold = computed(() => scene.isDeliveryHold)
 const isPingPong = computed(() => scene.sceneState === 'HOME_IDLE')
 
 // ---------------------------------------------------------------
-// 声音：注册 video 元素
+// 声音：音轨跟随视频播放（视频本身保持静音）
 // ---------------------------------------------------------------
-const audioCleanups: Array<() => void> = []
 let unbindAudioGesture: (() => void) | null = null
+useSceneAudio({
+  isPingPong: () => isPingPong.value,
+  videoId: () => scene.currentVideoId,
+  playing: () => controller.playing.value
+})
 
 // ---------------------------------------------------------------
 // 视频编排
@@ -116,6 +122,10 @@ let unbindAudioGesture: (() => void) | null = null
 function startPlaybackForCurrentState() {
   // ============ HOME_IDLE：007 正放 <-> 倒放往返 ============
   if (isPingPong.value) {
+    // 从 EATING 的 008 循环回到 HOME_IDLE 时，停掉普通控制器，避免旧视频继续在后台播放
+    if (controller.playing.value) {
+      controller.pause()
+    }
     if (pingPong.videoA.value && pingPong.videoB.value && !pingPong.playing.value) {
       void pingPong.start()
     }
@@ -200,10 +210,9 @@ controller.onEnded((videoId: SceneVideoId) => {
 // 生命周期
 // ---------------------------------------------------------------
 onMounted(async () => {
-  audioCleanups.push(audio.register(() => controller.layerA.value))
-  audioCleanups.push(audio.register(() => controller.layerB.value))
-  audioCleanups.push(audio.register(() => pingPong.videoA.value))
-  audioCleanups.push(audio.register(() => pingPong.videoB.value))
+  offDiningFinished = scene.onDiningFinished((orderId) => {
+    void completeDiningOrder(orderId)
+  })
   unbindAudioGesture = audio.bindUnlockOnce()
 
   controller.preload('001-1')
@@ -217,8 +226,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.clearTimeout(navHintTimer)
+  offDiningFinished?.()
   unbindAudioGesture?.()
-  audioCleanups.forEach((fn) => fn())
   controller.destroy()
   pingPong.destroy()
   scene.stopTick()
@@ -277,7 +286,7 @@ async function restoreSceneFromBackend() {
         currentOrderId: activeOrder.id,
         submittedOrderNo: activeOrder.orderNo,
         loggedIn: true,
-        diningCooldownUntil: scene.context.diningCooldownUntil ?? Date.now() + 10 * 60 * 1000
+        diningCooldownUntil: scene.context.diningCooldownUntil ?? Date.now() + DINING_COOLDOWN_MINUTES * 60 * 1000
       }
     })
     return
@@ -543,6 +552,15 @@ async function confirmOrder() {
     toast.error('下单失败', message)
   } finally {
     submitting.value = false
+  }
+}
+
+/** 用餐冷却结束：用到期前的订单号把后端订单推进为已完成，刷新后不会再恢复用餐态 */
+async function completeDiningOrder(orderId: number) {
+  try {
+    currentOrder.value = await orderApi.syncSceneStatus(orderId, 'COMPLETED')
+  } catch {
+    /* ignore */
   }
 }
 
@@ -867,6 +885,7 @@ function skipVideo() {
 }
 
 .scene-content {
+  position: relative;
   flex: 1;
   min-width: 0;
   height: 100%;
@@ -886,8 +905,20 @@ function skipVideo() {
     transform var(--motion-slow) var(--ease-enter);
 }
 
+/* 退场时脱离文档流，避免与新面板同时占位把新面板挤到右侧闪一下 */
 .menu-appear-leave-active {
+  position: absolute;
+  top: 0;
+  pointer-events: none;
   transition: opacity var(--motion-normal) var(--ease-standard);
+}
+
+.scene-pane--menu-right.menu-appear-leave-active {
+  right: 0;
+}
+
+.scene-pane--menu-left.menu-appear-leave-active {
+  left: 0;
 }
 
 .menu-appear-enter-from {
@@ -929,9 +960,9 @@ function skipVideo() {
   margin-right: auto;
 }
 
-/* 点餐面板（俯视视角）：靠右 */
+/* 点餐面板（俯视视角）：靠右；左边界控制在 53% 之后，避免盖住左侧男主 */
 .scene-pane--menu-right {
-  width: min(58vw, 1180px);
+  width: min(calc(46vw - var(--pane-gap)), 1080px);
   margin-left: auto;
 }
 
@@ -1141,7 +1172,7 @@ function skipVideo() {
   }
 
   .scene-pane--menu-right {
-    width: min(56vw, 980px);
+    width: min(calc(46vw - 18px), 900px);
   }
 
   .scene-pane--menu-left {
@@ -1155,7 +1186,7 @@ function skipVideo() {
   }
 
   .scene-pane--menu-right {
-    width: clamp(300px, 64vw, 820px);
+    width: min(calc(46vw - 14px), 760px);
   }
 
   .scene-pane--menu-left {
@@ -1178,7 +1209,7 @@ function skipVideo() {
   }
 
   .scene-pane--menu-right {
-    width: clamp(300px, 64vw, 820px);
+    width: min(calc(46vw - 14px), 760px);
   }
 
   .scene-pane--menu-left {

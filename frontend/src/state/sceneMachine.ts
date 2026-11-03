@@ -12,6 +12,7 @@
  *   → 点任意导航 → 播 006 → 播完进入 EATING，循环 008
  *   → EATING 时人物在右、左侧空 → 点餐 UI 显示在左侧
  *   → EATING 时点结算 → 拒绝下单
+ *   → 用餐冷却 1 分钟结束 → 回到 HOME_IDLE，007 正放/倒放往返循环，可再次点餐
  */
 import type { SceneVideoId } from '@/config/media'
 
@@ -34,8 +35,8 @@ export type ActivePanel = 'home' | 'menu' | 'order' | 'favorites' | 'nutrition'
 
 export type OrderStatus = 'none' | 'cart_only' | 'submitted' | 'delivered' | 'eating'
 
-/** 用餐冷却时长（分钟），可配置常量，不散落魔法数字 */
-export const DINING_COOLDOWN_MINUTES = 10
+/** 用餐冷却时长（分钟）：008 循环播放这么久后回到 HOME_IDLE 的 007 往返循环 */
+export const DINING_COOLDOWN_MINUTES = 1
 
 /** 场景状态 -> 视频 */
 export const SCENE_VIDEO_MAP: Record<SceneState, SceneVideoId | null> = {
@@ -334,8 +335,23 @@ export function sceneReducer(state: SceneContext, action: SceneAction): SceneCon
         diningCooldownUntil: Date.now() + DINING_COOLDOWN_MINUTES * 60 * 1000
       }
 
-    case 'CLEAR_COOLDOWN':
-      return { ...state, diningCooldownUntil: null }
+    /** 用餐冷却结束：008 停止，回到 HOME_IDLE 的 007 正放/倒放循环，形成完整用餐循环 */
+    case 'CLEAR_COOLDOWN': {
+      if (state.sceneState !== 'EATING') {
+        return { ...state, diningCooldownUntil: null }
+      }
+      return {
+        ...state,
+        sceneState: 'HOME_IDLE',
+        // 点餐面板只在用餐态可用，冷却结束回到首页；其他面板保持用户当前位置
+        activePanel: state.activePanel === 'menu' ? 'home' : state.activePanel,
+        orderStatus: 'none',
+        currentOrderId: null,
+        submittedOrderNo: null,
+        checkoutOpen: false,
+        diningCooldownUntil: null
+      }
+    }
 
     case 'VIDEO_ERROR':
       return { ...state, videoError: action.message }
